@@ -121,7 +121,7 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
     });
 
     // Update location provider coordinates
-    context.read<LocationProvider>().setLocation(addr.latitude, addr.longitude, addr.fullAddress);
+    context.read<LocationProvider>().setManualLocation(addr.latitude, addr.longitude);
 
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
