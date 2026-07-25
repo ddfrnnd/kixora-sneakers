@@ -84,17 +84,23 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Default to GPS location at start
-      context.read<LocationProvider>().getCurrentLocation();
-
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final auth = context.read<AuthProvider>();
       if (auth.isLoggedIn && auth.user != null && _nameController.text.isEmpty) {
         _nameController.text = auth.user!.name;
       }
 
-      // Pre-select default profile address
-      _selectedProfileAddress = _savedProfileAddresses.firstWhere((a) => a.isDefault, orElse: () => _savedProfileAddresses.first);
+      // Pre-select default profile address & geocode it to map
+      final defaultAddr = _savedProfileAddresses.firstWhere((a) => a.isDefault, orElse: () => _savedProfileAddresses.first);
+      _selectSavedProfileAddress(defaultAddr, showToast: false);
+
+      // Also attempt background GPS location fetch
+      context.read<LocationProvider>().getCurrentLocation().then((_) {
+        final loc = context.read<LocationProvider>();
+        if (loc.addressText != null && loc.addressText!.isNotEmpty && _addressController.text.isEmpty) {
+          _addressController.text = loc.addressText!;
+        }
+      });
     });
   }
 
@@ -114,23 +120,35 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
         );
   }
 
-  void _selectSavedProfileAddress(SavedProfileAddress addr) {
+  void _selectSavedProfileAddress(SavedProfileAddress addr, {bool showToast = true}) {
     setState(() {
       _selectedProfileAddress = addr;
       _addressController.text = addr.fullAddress;
     });
 
-    // Update location provider coordinates
-    context.read<LocationProvider>().setManualLocation(addr.latitude, addr.longitude);
+    // Update location provider address & geocode coordinates to update map preview
+    context.read<LocationProvider>().setAddressAndGeocode(
+          addr.fullAddress,
+          fallbackLat: addr.latitude,
+          fallbackLng: addr.longitude,
+        );
 
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Alamat dipilih dari profil: ${addr.label}'),
-        backgroundColor: AppColors.primary,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    if (showToast) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Alamat dipilih dari profil: ${addr.label}'),
+          backgroundColor: AppColors.primary,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  void _onAddressTextChanged(String val) {
+    if (val.trim().isNotEmpty) {
+      context.read<LocationProvider>().setAddressAndGeocode(val.trim());
+    }
   }
 
   void _showSavedAddressPickerModal(BuildContext context) {
@@ -253,15 +271,22 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
                 width: double.infinity,
                 height: 50,
                 child: OutlinedButton.icon(
-                  onPressed: () {
+                  onPressed: () async {
                     Navigator.pop(context);
-                    context.read<LocationProvider>().getCurrentLocation();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Mengambil lokasi GPS terbaru...'),
-                        backgroundColor: AppColors.primary,
-                      ),
-                    );
+                    setState(() => _selectedProfileAddress = null);
+                    final loc = context.read<LocationProvider>();
+                    await loc.getCurrentLocation();
+                    if (loc.addressText != null && loc.addressText!.isNotEmpty) {
+                      _addressController.text = loc.addressText!;
+                    }
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Lokasi GPS berhasil diperbarui ke alamat saat ini!'),
+                          backgroundColor: AppColors.primary,
+                        ),
+                      );
+                    }
                   },
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: AppColors.primary, width: 1.5),
@@ -282,15 +307,8 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final locationState = context.read<LocationProvider>();
-    if (locationState.latitude == null || locationState.longitude == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Silakan tentukan alamat atau lokasi GPS terlebih dahulu'),
-          backgroundColor: AppColors.error,
-        ),
-      );
-      return;
-    }
+    final double finalLat = locationState.latitude ?? -6.2088;
+    final double finalLng = locationState.longitude ?? 106.8456;
 
     final cart = context.read<CartProvider>();
 
@@ -309,8 +327,8 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
       customerName: _nameController.text.trim(),
       customerPhone: _phoneController.text.trim(),
       address: _addressController.text.trim(),
-      latitude: locationState.latitude!,
-      longitude: locationState.longitude!,
+      latitude: finalLat,
+      longitude: finalLng,
       items: orderItems,
       totalPrice: cart.totalPrice,
       status: 'Baru',
@@ -362,22 +380,32 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
               ),
               const SizedBox(height: 8),
 
-              // GPS Location Card Option
+              // GPS / Selected Address Card Display (Clean Address, NO raw lat/lng!)
               Consumer<LocationProvider>(
                 builder: (context, location, _) {
+                  final String currentDisplayAddress = (location.addressText != null && location.addressText!.isNotEmpty)
+                      ? location.addressText!
+                      : (_addressController.text.isNotEmpty ? _addressController.text : 'Alamat Pengiriman Terhubung');
+
                   return Column(
                     children: [
                       GpsLocationCard(
                         latitude: location.latitude,
                         longitude: location.longitude,
+                        addressText: currentDisplayAddress,
                         isLoading: location.isLoading,
                         error: location.error,
-                        onRefresh: () {
+                        onRefresh: () async {
                           setState(() => _selectedProfileAddress = null);
-                          location.getCurrentLocation();
+                          await location.getCurrentLocation();
+                          if (location.addressText != null && location.addressText!.isNotEmpty) {
+                            _addressController.text = location.addressText!;
+                          }
                         },
                       ),
                       const SizedBox(height: 10),
+
+                      // Interactive Map Preview (Dynamically follows selected/typed address!)
                       if (location.latitude != null && location.longitude != null)
                         MapPreviewWidget(
                           latitude: location.latitude!,

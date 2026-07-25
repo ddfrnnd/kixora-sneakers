@@ -19,15 +19,17 @@ class MapPreviewWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
+      key: ValueKey('map-$latitude-$longitude'),
+      borderRadius: BorderRadius.circular(18),
       child: SizedBox(
         height: height,
         child: FlutterMap(
+          key: ValueKey('flutter-map-$latitude-$longitude'),
           options: MapOptions(
             initialCenter: LatLng(latitude, longitude),
             initialZoom: 15,
             interactionOptions: const InteractionOptions(
-              flags: InteractiveFlag.none,
+              flags: InteractiveFlag.all,
             ),
           ),
           children: [
@@ -39,12 +41,26 @@ class MapPreviewWidget extends StatelessWidget {
               markers: [
                 Marker(
                   point: LatLng(latitude, longitude),
-                  width: 40,
-                  height: 40,
-                  child: const HugeIcon(
-                    icon: HugeIcons.strokeRoundedPinLocation01,
-                    color: AppColors.error,
-                    size: 40,
+                  width: 44,
+                  height: 44,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.2),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.all(6),
+                    child: const HugeIcon(
+                      icon: HugeIcons.strokeRoundedPinLocation01,
+                      color: AppColors.primary,
+                      size: 26,
+                    ),
                   ),
                 ),
               ],

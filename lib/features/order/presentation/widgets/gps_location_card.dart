@@ -6,6 +6,7 @@ import 'package:fashion_ecommerce/app/theme/app_text_styles.dart';
 class GpsLocationCard extends StatelessWidget {
   final double? latitude;
   final double? longitude;
+  final String? addressText;
   final bool isLoading;
   final String? error;
   final VoidCallback onRefresh;
@@ -14,6 +15,7 @@ class GpsLocationCard extends StatelessWidget {
     super.key,
     this.latitude,
     this.longitude,
+    this.addressText,
     this.isLoading = false,
     this.error,
     required this.onRefresh,
@@ -21,30 +23,59 @@ class GpsLocationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool hasLocation = latitude != null && longitude != null;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: latitude != null
-              ? AppColors.success.withValues(alpha: 0.3)
-              : AppColors.shimmerBase,
+          color: hasLocation
+              ? AppColors.primary.withValues(alpha: 0.3)
+              : const Color(0xFFE2E8F0),
+          width: hasLocation ? 1.5 : 1.0,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.shadow,
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              HugeIcon(
-                icon: HugeIcons.strokeRoundedLocation01,
-                color: latitude != null ? AppColors.success : AppColors.textHint,
-                size: 24,
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: hasLocation
+                      ? AppColors.primary.withValues(alpha: 0.1)
+                      : const Color(0xFFF1F5F9),
+                  shape: BoxShape.circle,
+                ),
+                child: HugeIcon(
+                  icon: HugeIcons.strokeRoundedLocation01,
+                  color: hasLocation ? AppColors.primary : AppColors.textHint,
+                  size: 20,
+                ),
               ),
-              const SizedBox(width: 8),
-              Text('Lokasi GPS', style: AppTextStyles.labelLarge),
-              const Spacer(),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Lokasi GPS Alamat', style: AppTextStyles.labelLarge.copyWith(fontWeight: FontWeight.bold)),
+                    Text(
+                      hasLocation ? 'Lokasi terhubung dengan peta' : 'Belum memilih lokasi',
+                      style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
               if (isLoading)
                 const SizedBox(
                   width: 20,
@@ -57,78 +88,58 @@ class GpsLocationCard extends StatelessWidget {
               else
                 IconButton(
                   onPressed: onRefresh,
-                  icon: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh, color: AppColors.primary),
-                  tooltip: 'Refresh lokasi',
+                  icon: const HugeIcon(icon: HugeIcons.strokeRoundedGps01, color: AppColors.primary),
+                  tooltip: 'Deteksi ulang GPS',
                 ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
+
           if (error != null)
             Text(
               error!,
               style: AppTextStyles.bodySmall.copyWith(color: AppColors.error),
             )
-          else if (latitude != null && longitude != null)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildCoordRow('Latitude', latitude!.toStringAsFixed(6)),
-                const SizedBox(height: 4),
-                _buildCoordRow('Longitude', longitude!.toStringAsFixed(6)),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
+          else if (hasLocation)
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                children: [
+                  const HugeIcon(
+                    icon: HugeIcons.strokeRoundedPinLocation01,
+                    size: 18,
+                    color: AppColors.primary,
                   ),
-                  decoration: BoxDecoration(
-                    color: AppColors.success.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01,
-                          size: 16, color: AppColors.success),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Lokasi berhasil diambil',
-                        style: AppTextStyles.caption.copyWith(
-                          color: AppColors.success,
-                          fontWeight: FontWeight.w600,
-                        ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      (addressText != null && addressText!.isNotEmpty)
+                          ? addressText!
+                          : 'Alamat terhubung presisi dengan titik peta GPS',
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                        height: 1.3,
                       ),
-                    ],
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             )
           else
             Text(
-              'Tap refresh untuk mengambil lokasi GPS',
-              style: AppTextStyles.bodySmall,
+              'Tekan tombol GPS di samping untuk mendeteksi alamat Anda otomatis',
+              style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
             ),
         ],
       ),
-    );
-  }
-
-  Widget _buildCoordRow(String label, String value) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 80,
-          child: Text(label, style: AppTextStyles.caption),
-        ),
-        Text(': ', style: AppTextStyles.caption),
-        Text(
-          value,
-          style: AppTextStyles.bodySmall.copyWith(
-            fontWeight: FontWeight.w600,
-            fontFamily: 'monospace',
-          ),
-        ),
-      ],
     );
   }
 }
