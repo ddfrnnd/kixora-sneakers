@@ -326,11 +326,17 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
           ),
         ),
       ),
-      body: StreamBuilder<DocumentSnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('orders')
-            .doc(widget.orderId)
-            .snapshots(),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: widget.orderId.trim().isNotEmpty
+            ? FirebaseFirestore.instance
+                .collection('orders')
+                .where(FieldPath.documentId, isEqualTo: widget.orderId)
+                .snapshots()
+            : FirebaseFirestore.instance
+                .collection('orders')
+                .orderBy('created_at', descending: true)
+                .limit(1)
+                .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(
@@ -339,8 +345,11 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
           }
 
           Map<String, dynamic> orderData = {};
-          if (snapshot.hasData && snapshot.data!.exists) {
-            orderData = snapshot.data!.data() as Map<String, dynamic>;
+          String currentDocId = widget.orderId;
+          if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+            final doc = snapshot.data!.docs.first;
+            currentDocId = doc.id;
+            orderData = doc.data() as Map<String, dynamic>;
           }
 
           final String status = (orderData['status'] ?? 'Baru').toString();
@@ -353,9 +362,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
           final String recipientPhone = orderData['customer_phone'] ?? '081234567890';
           final String address = orderData['address'] ?? 'Alamat Pemesanan';
 
-          final displayId = widget.orderId.length > 8
-              ? widget.orderId.substring(0, 8).toUpperCase()
-              : widget.orderId.toUpperCase();
+          final displayId = currentDocId.length > 8
+              ? currentDocId.substring(0, 8).toUpperCase()
+              : (currentDocId.isNotEmpty ? currentDocId.toUpperCase() : 'SOLESTEP-88');
 
           final bool isShipped = status == 'Dikirim' || status == 'Selesai';
           final bool isCompleted = status == 'Selesai';

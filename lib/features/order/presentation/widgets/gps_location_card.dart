@@ -4,21 +4,21 @@ import 'package:fashion_ecommerce/app/theme/app_colors.dart';
 import 'package:fashion_ecommerce/app/theme/app_text_styles.dart';
 
 class GpsLocationCard extends StatelessWidget {
+  final String? addressTitle;
+  final String? addressText;
   final double? latitude;
   final double? longitude;
-  final String? addressText;
   final bool isLoading;
   final String? error;
-  final VoidCallback onRefresh;
 
   const GpsLocationCard({
     super.key,
+    this.addressTitle,
+    this.addressText,
     this.latitude,
     this.longitude,
-    this.addressText,
     this.isLoading = false,
     this.error,
-    required this.onRefresh,
   });
 
   @override
@@ -28,8 +28,8 @@ class GpsLocationCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(18),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: hasLocation
               ? AppColors.primary.withValues(alpha: 0.3)
@@ -39,43 +39,60 @@ class GpsLocationCard extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: AppColors.shadow,
-            blurRadius: 4,
-            offset: const Offset(0, 1),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header Row: Pin Icon & Title (Nama Alamat misal: Rumah)
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: hasLocation
-                      ? AppColors.primary.withValues(alpha: 0.1)
-                      : const Color(0xFFF1F5F9),
+                  color: AppColors.primary.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: HugeIcon(
+                child: const HugeIcon(
                   icon: HugeIcons.strokeRoundedLocation01,
-                  color: hasLocation ? AppColors.primary : AppColors.textHint,
-                  size: 20,
+                  color: AppColors.primary,
+                  size: 22,
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
+
+              // Nama Alamat (misal: Rumah (Utama) / Kantor / Lokasi GPS)
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Lokasi GPS Alamat', style: AppTextStyles.labelLarge.copyWith(fontWeight: FontWeight.bold)),
                     Text(
-                      hasLocation ? 'Lokasi terhubung dengan peta' : 'Belum memilih lokasi',
-                      style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
+                      (addressTitle != null && addressTitle!.isNotEmpty)
+                          ? addressTitle!
+                          : 'Rumah (Utama)',
+                      style: AppTextStyles.h3.copyWith(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Alamat Terpilih',
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.textSecondary,
+                        fontSize: 11,
+                      ),
                     ),
                   ],
                 ),
               ),
+
               if (isLoading)
                 const SizedBox(
                   width: 20,
@@ -84,59 +101,38 @@ class GpsLocationCard extends StatelessWidget {
                     strokeWidth: 2,
                     color: AppColors.primary,
                   ),
-                )
-              else
-                IconButton(
-                  onPressed: onRefresh,
-                  icon: const HugeIcon(icon: HugeIcons.strokeRoundedGps01, color: AppColors.primary),
-                  tooltip: 'Deteksi ulang GPS',
                 ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
 
+          // Body: Alamat Lengkap di bawah Nama Alamat
           if (error != null)
             Text(
               error!,
               style: AppTextStyles.bodySmall.copyWith(color: AppColors.error),
             )
-          else if (hasLocation)
+          else
             Container(
+              width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
-              child: Row(
-                children: [
-                  const HugeIcon(
-                    icon: HugeIcons.strokeRoundedPinLocation01,
-                    size: 18,
-                    color: AppColors.primary,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      (addressText != null && addressText!.isNotEmpty)
-                          ? addressText!
-                          : 'Alamat terhubung presisi dengan titik peta GPS',
-                      style: AppTextStyles.bodySmall.copyWith(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w600,
-                        height: 1.3,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
+              child: Text(
+                (addressText != null && addressText!.isNotEmpty)
+                    ? addressText!
+                    : 'Jl. Sudirman No. 45, Jakarta Selatan, 12190',
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.textPrimary,
+                  fontSize: 13,
+                  height: 1.4,
+                ),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
               ),
-            )
-          else
-            Text(
-              'Tekan tombol GPS di samping untuk mendeteksi alamat Anda otomatis',
-              style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
             ),
         ],
       ),

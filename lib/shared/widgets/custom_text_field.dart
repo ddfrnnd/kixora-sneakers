@@ -40,9 +40,8 @@ class CustomTextField extends StatelessWidget {
         Text(
           label,
           style: const TextStyle(
-            fontFamily: 'Poppins',
             fontSize: 14,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w600,
           ),
         ),
         const SizedBox(height: 8),
@@ -58,8 +57,34 @@ class CustomTextField extends StatelessWidget {
           textInputAction: textInputAction,
           decoration: InputDecoration(
             hintText: hint,
-            prefixIcon: prefixIcon,
-            suffixIcon: suffixIcon,
+            prefixIcon: prefixIcon != null
+                ? Container(
+                    width: 44,
+                    height: 44,
+                    alignment: Alignment.center,
+                    child: prefixIcon,
+                  )
+                : null,
+            prefixIconConstraints: const BoxConstraints(
+              minWidth: 44,
+              minHeight: 44,
+              maxWidth: 44,
+              maxHeight: 44,
+            ),
+            suffixIcon: suffixIcon != null
+                ? Container(
+                    width: 44,
+                    height: 44,
+                    alignment: Alignment.center,
+                    child: suffixIcon,
+                  )
+                : null,
+            suffixIconConstraints: const BoxConstraints(
+              minWidth: 44,
+              minHeight: 44,
+              maxWidth: 44,
+              maxHeight: 44,
+            ),
           ),
         ),
       ],

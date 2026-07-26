@@ -19,6 +19,7 @@ import 'package:fashion_ecommerce/features/auth/presentation/screens/register_sc
 import 'package:fashion_ecommerce/features/admin/presentation/screens/admin_dashboard_screen.dart';
 import 'package:fashion_ecommerce/features/admin/presentation/screens/add_product_screen.dart';
 import 'package:fashion_ecommerce/features/admin/presentation/screens/admin_order_detail_screen.dart';
+import 'package:fashion_ecommerce/features/order/domain/entities/order.dart' as entity;
 import 'package:hugeicons/hugeicons.dart';
 
 class AppRouter {
@@ -109,13 +110,34 @@ class AppRouter {
       GoRoute(
         path: '/order-success',
         name: 'order-success',
-        builder: (context, state) => const OrderSuccessScreen(),
+        builder: (context, state) {
+          final extra = state.extra;
+          entity.Order? order;
+          if (extra is entity.Order) {
+            order = extra;
+          }
+          return OrderSuccessScreen(order: order);
+        },
       ),
       GoRoute(
         path: '/order-tracking/:id',
         name: 'order-tracking',
         builder: (context, state) {
-          final id = state.pathParameters['id']!;
+          final id = state.pathParameters['id'] ?? '';
+          return OrderTrackingScreen(orderId: id);
+        },
+      ),
+      GoRoute(
+        path: '/order-tracking',
+        name: 'order-tracking-extra',
+        builder: (context, state) {
+          final extra = state.extra;
+          String id = '';
+          if (extra is entity.Order) {
+            id = extra.id ?? '';
+          } else if (extra is String) {
+            id = extra;
+          }
           return OrderTrackingScreen(orderId: id);
         },
       ),

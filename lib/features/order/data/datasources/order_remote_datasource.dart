@@ -28,17 +28,19 @@ class OrderRemoteDatasource {
       data['items'] = items;
 
       final docRef = await _ordersRef.add(data);
-      final doc = await docRef.get();
-      final responseData = doc.data() as Map<String, dynamic>;
-      responseData['id'] = doc.id;
 
-      // Convert Timestamp to string for parsing
-      if (responseData['created_at'] is Timestamp) {
-        responseData['created_at'] =
-            (responseData['created_at'] as Timestamp).toDate().toIso8601String();
-      }
-
-      return OrderModel.fromJson(responseData);
+      return OrderModel(
+        id: docRef.id,
+        customerName: order.customerName,
+        customerPhone: order.customerPhone,
+        address: order.address,
+        latitude: order.latitude,
+        longitude: order.longitude,
+        items: order.items,
+        status: 'Baru',
+        totalPrice: order.totalPrice,
+        createdAt: DateTime.now(),
+      );
     } catch (e) {
       throw ServerException(message: 'Gagal membuat pesanan: $e');
     }

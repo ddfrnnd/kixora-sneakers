@@ -48,6 +48,8 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
   final _promoController = TextEditingController();
 
   SavedProfileAddress? _selectedProfileAddress;
+  String _selectedPaymentMethod = 'COD';
+  bool _isSubmitting = false;
 
   final List<SavedProfileAddress> _savedProfileAddresses = [
     SavedProfileAddress(
@@ -90,17 +92,9 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
         _nameController.text = auth.user!.name;
       }
 
-      // Pre-select default profile address & geocode it to map
+      // Pre-select default profile address & set map coordinates to saved profile address
       final defaultAddr = _savedProfileAddresses.firstWhere((a) => a.isDefault, orElse: () => _savedProfileAddresses.first);
       _selectSavedProfileAddress(defaultAddr, showToast: false);
-
-      // Also attempt background GPS location fetch
-      context.read<LocationProvider>().getCurrentLocation().then((_) {
-        final loc = context.read<LocationProvider>();
-        if (loc.addressText != null && loc.addressText!.isNotEmpty && _addressController.text.isEmpty) {
-          _addressController.text = loc.addressText!;
-        }
-      });
     });
   }
 
@@ -137,17 +131,11 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Alamat dipilih dari profil: ${addr.label}'),
+          content: Text('Alamat dipilih: ${addr.label}'),
           backgroundColor: AppColors.primary,
           duration: const Duration(seconds: 2),
         ),
       );
-    }
-  }
-
-  void _onAddressTextChanged(String val) {
-    if (val.trim().isNotEmpty) {
-      context.read<LocationProvider>().setAddressAndGeocode(val.trim());
     }
   }
 
@@ -282,7 +270,7 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('Lokasi GPS berhasil diperbarui ke alamat saat ini!'),
+                          content: Text('Lokasi GPS berhasil diperbarui ke posisi Anda saat ini.'),
                           backgroundColor: AppColors.primary,
                         ),
                       );
@@ -303,43 +291,71 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
     );
   }
 
-  void _submitOrder() {
+  Future<void> _submitOrder() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final locationState = context.read<LocationProvider>();
-    final double finalLat = locationState.latitude ?? -6.2088;
-    final double finalLng = locationState.longitude ?? 106.8456;
+    setState(() => _isSubmitting = true);
 
-    final cart = context.read<CartProvider>();
+    try {
+      final locationState = context.read<LocationProvider>();
+      final double finalLat = locationState.latitude ?? -6.2088;
+      final double finalLng = locationState.longitude ?? 106.8456;
 
-    final orderItems = cart.items.map((item) {
-      return entity.OrderItem(
-        productId: item.product.id,
-        productName: item.product.name,
-        quantity: item.quantity,
-        price: item.product.price,
-        imageUrl: item.product.imageUrl,
+      final cart = context.read<CartProvider>();
+
+      final orderItems = cart.items.map((item) {
+        return entity.OrderItem(
+          productId: item.product.id,
+          productName: item.product.name,
+          quantity: item.quantity,
+          price: item.product.price,
+          imageUrl: item.product.imageUrl,
+        );
+      }).toList();
+
+      final newOrder = entity.Order(
+        id: '',
+        customerName: _nameController.text.trim(),
+        customerPhone: _phoneController.text.trim(),
+        address: _addressController.text.trim(),
+        latitude: finalLat,
+        longitude: finalLng,
+        items: orderItems,
+        totalPrice: cart.totalPrice,
+        status: 'Baru',
+        createdAt: DateTime.now(),
       );
-    }).toList();
 
-    final orderDraft = entity.Order(
-      id: '',
-      customerName: _nameController.text.trim(),
-      customerPhone: _phoneController.text.trim(),
-      address: _addressController.text.trim(),
-      latitude: finalLat,
-      longitude: finalLng,
-      items: orderItems,
-      totalPrice: cart.totalPrice,
-      status: 'Baru',
-      createdAt: DateTime.now(),
-    );
+      // Save Order directly to Cloud Firestore Database
+      final success = await context.read<OrderProvider>().createOrder(newOrder);
+      final createdOrder = context.read<OrderProvider>().lastOrder;
 
-    context.read<OrderProvider>().setCustomerName(_nameController.text.trim());
-    context.read<OrderProvider>().setCustomerPhone(_phoneController.text.trim());
-    context.read<OrderProvider>().setAddress(_addressController.text.trim());
+      // Clear cart items
+      cart.clearCart();
 
-    context.push('/order-confirmation', extra: orderDraft);
+      if (mounted) {
+        final String orderId = createdOrder?.id ?? '';
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Pesanan Anda berhasil dibuat dan sedang diproses.'),
+            backgroundColor: AppColors.success,
+            duration: Duration(seconds: 3),
+          ),
+        );
+        context.go('/order-success', extra: createdOrder);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal membuat pesanan. Silakan coba kembali.'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
   }
 
   @override
@@ -366,46 +382,43 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. Shipping Address Options Bar (GPS vs Saved Profile Address)
+              // 1. Shipping Address Section Header with Ganti Alamat Button
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Alamat Pengiriman', style: AppTextStyles.h3.copyWith(fontSize: 17, fontWeight: FontWeight.bold)),
+                  Text('Alamat Pengiriman', style: AppTextStyles.h3.copyWith(fontSize: 18, fontWeight: FontWeight.bold)),
                   TextButton.icon(
                     onPressed: () => _showSavedAddressPickerModal(context),
                     icon: const HugeIcon(icon: HugeIcons.strokeRoundedHome01, color: AppColors.primary, size: 16),
-                    label: const Text('Pilih Alamat Profil ➔', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13)),
+                    label: const Text('Ganti Alamat', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13)),
                   ),
                 ],
               ),
               const SizedBox(height: 8),
 
-              // GPS / Selected Address Card Display (Clean Address, NO raw lat/lng!)
+              // GPS / Selected Address Card Display
               Consumer<LocationProvider>(
                 builder: (context, location, _) {
-                  final String currentDisplayAddress = (location.addressText != null && location.addressText!.isNotEmpty)
-                      ? location.addressText!
-                      : (_addressController.text.isNotEmpty ? _addressController.text : 'Alamat Pengiriman Terhubung');
+                  final String title = _selectedProfileAddress?.label ?? 'Lokasi GPS Saat Ini';
+                  final String currentDisplayAddress = _addressController.text.isNotEmpty
+                      ? _addressController.text
+                      : (location.addressText != null && location.addressText!.isNotEmpty
+                          ? location.addressText!
+                          : 'Jl. Sudirman No. 45, Jakarta Selatan, 12190');
 
                   return Column(
                     children: [
                       GpsLocationCard(
+                        addressTitle: title,
+                        addressText: currentDisplayAddress,
                         latitude: location.latitude,
                         longitude: location.longitude,
-                        addressText: currentDisplayAddress,
                         isLoading: location.isLoading,
                         error: location.error,
-                        onRefresh: () async {
-                          setState(() => _selectedProfileAddress = null);
-                          await location.getCurrentLocation();
-                          if (location.addressText != null && location.addressText!.isNotEmpty) {
-                            _addressController.text = location.addressText!;
-                          }
-                        },
                       ),
                       const SizedBox(height: 10),
 
-                      // Interactive Map Preview (Dynamically follows selected/typed address!)
+                      // Interactive Map Preview
                       if (location.latitude != null && location.longitude != null)
                         MapPreviewWidget(
                           latitude: location.latitude!,
@@ -540,100 +553,36 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
               ),
               const SizedBox(height: 24),
 
-              // 3. Choose Shipping Type
-              Text('Metode Pengiriman', style: AppTextStyles.h3.copyWith(fontSize: 17, fontWeight: FontWeight.bold)),
+              // 3. Choose Payment Method (Metode Pembayaran COD / Transfer / E-Wallet)
+              Text('Metode Pembayaran', style: AppTextStyles.h3.copyWith(fontSize: 17, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.shadow,
-                      blurRadius: 4,
-                      offset: const Offset(0, 1),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    const HugeIcon(
-                      icon: HugeIcons.strokeRoundedDeliveryTruck01,
-                      color: AppColors.primary,
-                      size: 24,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Express Delivery (GPS Live Tracking)',
-                        style: AppTextStyles.bodyMedium.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    const HugeIcon(
-                      icon: HugeIcons.strokeRoundedArrowRight01,
-                      color: AppColors.textSecondary,
-                      size: 20,
-                    ),
-                  ],
-                ),
+
+              _buildPaymentOptionCard(
+                value: 'COD',
+                title: 'COD (Bayar di Tempat)',
+                subtitle: 'Bayar tunai kepada kurir saat sepatu sampai di rumah Anda',
+                icon: HugeIcons.strokeRoundedMoney01,
+                badge: 'Populer & Praktis',
+              ),
+              const SizedBox(height: 10),
+
+              _buildPaymentOptionCard(
+                value: 'Transfer Bank (Virtual Account)',
+                title: 'Transfer Bank / Virtual Account',
+                subtitle: 'BCA, Bank Mandiri, BNI, BRI (Otomatis terverifikasi)',
+                icon: HugeIcons.strokeRoundedCreditCard,
+              ),
+              const SizedBox(height: 10),
+
+              _buildPaymentOptionCard(
+                value: 'E-Wallet & QRIS',
+                title: 'E-Wallet & QRIS',
+                subtitle: 'GoPay, OVO, ShopeePay, DANA & QRIS All Bank',
+                icon: HugeIcons.strokeRoundedQrCode,
               ),
               const SizedBox(height: 24),
 
-              // 4. Promo Code
-              Text('Kode Voucher Promo', style: AppTextStyles.h3.copyWith(fontSize: 17, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      height: 52,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF7F3F2),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: TextField(
-                        controller: _promoController,
-                        decoration: const InputDecoration(
-                          hintText: 'Masukkan Kode Promo (contoh: SOLESTEP20)',
-                          hintStyle: TextStyle(fontSize: 13),
-                          border: InputBorder.none,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Container(
-                    width: 52,
-                    height: 52,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: IconButton(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Voucher promo berhasil diterapkan!'),
-                            backgroundColor: AppColors.success,
-                          ),
-                        );
-                      },
-                      icon: const HugeIcon(
-                        icon: HugeIcons.strokeRoundedAdd01,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-
-              // 5. Cost Summary Section
+              // 4. Cost Summary Section
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -698,10 +647,99 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
         ),
         child: SafeArea(
           child: CustomButton(
-            text: 'Lanjutkan ke Pembayaran',
-            icon: HugeIcons.strokeRoundedArrowRight01,
+            text: _isSubmitting ? 'Memproses Pesanan...' : 'Buat Pesanan Sekarang (${_selectedPaymentMethod == 'COD' ? 'COD' : 'Bayar'})',
+            icon: HugeIcons.strokeRoundedCheckmarkCircle02,
+            isLoading: _isSubmitting,
             onPressed: _submitOrder,
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPaymentOptionCard({
+    required String value,
+    required String title,
+    required String subtitle,
+    required List<List<dynamic>>? icon,
+    String? badge,
+  }) {
+    final isSelected = _selectedPaymentMethod == value;
+
+    return GestureDetector(
+      onTap: () => setState(() => _selectedPaymentMethod = value),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary.withValues(alpha: 0.05) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0),
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: isSelected ? AppColors.primary : const Color(0xFFF1F5F9),
+                shape: BoxShape.circle,
+              ),
+              child: HugeIcon(
+                icon: icon!,
+                color: isSelected ? Colors.white : AppColors.textSecondary,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                        ),
+                      ),
+                      if (badge != null) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.success.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            badge,
+                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.success),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+            Radio<String>(
+              value: value,
+              groupValue: _selectedPaymentMethod,
+              activeColor: AppColors.primary,
+              onChanged: (val) {
+                if (val != null) setState(() => _selectedPaymentMethod = val);
+              },
+            ),
+          ],
         ),
       ),
     );
