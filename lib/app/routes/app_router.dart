@@ -10,6 +10,7 @@ import 'package:fashion_ecommerce/features/product/presentation/screens/customer
 import 'package:fashion_ecommerce/features/profile/presentation/screens/address_list_screen.dart';
 import 'package:fashion_ecommerce/features/profile/presentation/screens/add_new_address_screen.dart';
 import 'package:fashion_ecommerce/features/order/presentation/screens/cart_screen.dart';
+import 'package:fashion_ecommerce/features/order/presentation/providers/cart_provider.dart';
 import 'package:fashion_ecommerce/features/order/presentation/screens/order_form_screen.dart';
 import 'package:fashion_ecommerce/features/order/presentation/screens/order_confirmation_screen.dart';
 import 'package:fashion_ecommerce/features/order/presentation/screens/order_success_screen.dart';
@@ -100,7 +101,14 @@ class AppRouter {
       GoRoute(
         path: '/order-form',
         name: 'order-form',
-        builder: (context, state) => const OrderFormScreen(),
+        builder: (context, state) {
+          final extra = state.extra;
+          CartItem? directItem;
+          if (extra is CartItem) {
+            directItem = extra;
+          }
+          return OrderFormScreen(directItem: directItem);
+        },
       ),
       GoRoute(
         path: '/order-confirmation',

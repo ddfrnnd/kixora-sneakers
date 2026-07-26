@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:fashion_ecommerce/app/theme/app_colors.dart';
 import 'package:fashion_ecommerce/app/theme/app_text_styles.dart';
 import 'package:fashion_ecommerce/features/order/presentation/providers/cart_provider.dart';
+import 'package:fashion_ecommerce/core/utils/auth_helper.dart';
 import 'package:fashion_ecommerce/shared/widgets/custom_button.dart';
 import 'package:fashion_ecommerce/shared/widgets/empty_state_widget.dart';
 
@@ -396,7 +397,15 @@ class CartScreen extends StatelessWidget {
                           ),
                         ),
                         ElevatedButton.icon(
-                          onPressed: () => context.push('/order-form'),
+                          onPressed: () {
+                            AuthHelper.checkLoginAndExecute(
+                              context,
+                              message: 'Silakan masuk terlebih dahulu untuk melanjutkan ke proses checkout pemesanan.',
+                              onAuthenticated: () {
+                                context.push('/order-form');
+                              },
+                            );
+                          },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
                             minimumSize: const Size(170, 54),

@@ -34,7 +34,9 @@ class SavedProfileAddress {
 }
 
 class OrderFormScreen extends StatefulWidget {
-  const OrderFormScreen({super.key});
+  final CartItem? directItem;
+
+  const OrderFormScreen({super.key, this.directItem});
 
   @override
   State<OrderFormScreen> createState() => _OrderFormScreenState();
@@ -302,8 +304,14 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
       final double finalLng = locationState.longitude ?? 106.8456;
 
       final cart = context.read<CartProvider>();
+      final List<CartItem> displayItems = widget.directItem != null
+          ? [widget.directItem!]
+          : cart.items;
+      final double displayTotalPrice = widget.directItem != null
+          ? (widget.directItem!.product.price * widget.directItem!.quantity)
+          : cart.totalPrice;
 
-      final orderItems = cart.items.map((item) {
+      final orderItems = displayItems.map((item) {
         return entity.OrderItem(
           productId: item.product.id,
           productName: item.product.name,
@@ -321,7 +329,7 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
         latitude: finalLat,
         longitude: finalLng,
         items: orderItems,
-        totalPrice: cart.totalPrice,
+        totalPrice: displayTotalPrice,
         status: 'Baru',
         createdAt: DateTime.now(),
       );
@@ -330,8 +338,10 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
       final success = await context.read<OrderProvider>().createOrder(newOrder);
       final createdOrder = context.read<OrderProvider>().lastOrder;
 
-      // Clear cart items
-      cart.clearCart();
+      // Clear cart items only if checked out from cart
+      if (widget.directItem == null) {
+        cart.clearCart();
+      }
 
       if (mounted) {
         final String orderId = createdOrder?.id ?? '';
@@ -361,6 +371,12 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
   @override
   Widget build(BuildContext context) {
     final cart = context.watch<CartProvider>();
+    final List<CartItem> displayItems = widget.directItem != null
+        ? [widget.directItem!]
+        : cart.items;
+    final double displayTotalPrice = widget.directItem != null
+        ? (widget.directItem!.product.price * widget.directItem!.quantity)
+        : cart.totalPrice;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -481,10 +497,10 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
               ListView.separated(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: cart.items.length,
+                itemCount: displayItems.length,
                 separatorBuilder: (context, index) => const SizedBox(height: 10),
                 itemBuilder: (context, index) {
-                  final item = cart.items[index];
+                  final item = displayItems[index];
                   return Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -619,7 +635,7 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
                       children: [
                         Text('Total Pembayaran', style: AppTextStyles.h3.copyWith(fontSize: 17, fontWeight: FontWeight.bold)),
                         Text(
-                          'Rp ${_formatPrice(cart.totalPrice)}',
+                          'Rp ${_formatPrice(displayTotalPrice)}',
                           style: AppTextStyles.price.copyWith(fontSize: 20),
                         ),
                       ],

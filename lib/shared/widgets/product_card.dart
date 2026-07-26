@@ -6,6 +6,7 @@ import 'package:fashion_ecommerce/app/theme/app_colors.dart';
 import 'package:fashion_ecommerce/app/theme/app_text_styles.dart';
 import 'package:fashion_ecommerce/features/product/domain/entities/product.dart';
 import 'package:fashion_ecommerce/features/product/presentation/providers/product_provider.dart';
+import 'package:fashion_ecommerce/core/utils/auth_helper.dart';
 
 class ProductCard extends StatefulWidget {
   final Product product;
@@ -87,7 +88,13 @@ class _ProductCardState extends State<ProductCard> {
                     right: 8,
                     child: GestureDetector(
                       onTap: () {
-                        productProvider.toggleFavorite(widget.product.id);
+                        AuthHelper.checkLoginAndExecute(
+                          context,
+                          message: 'Silakan masuk terlebih dahulu untuk menambahkan produk ini ke daftar Wishlist Anda.',
+                          onAuthenticated: () {
+                            productProvider.toggleFavorite(widget.product.id);
+                          },
+                        );
                       },
                       child: Container(
                         padding: const EdgeInsets.all(6),

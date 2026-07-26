@@ -7,6 +7,7 @@ import 'package:fashion_ecommerce/app/theme/app_colors.dart';
 import 'package:fashion_ecommerce/app/theme/app_text_styles.dart';
 import 'package:fashion_ecommerce/features/product/presentation/providers/product_provider.dart';
 import 'package:fashion_ecommerce/features/order/presentation/providers/cart_provider.dart';
+import 'package:fashion_ecommerce/core/utils/auth_helper.dart';
 import 'package:fashion_ecommerce/shared/widgets/loading_indicator.dart';
 import 'package:fashion_ecommerce/shared/widgets/error_widget.dart';
 
@@ -435,19 +436,25 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         Expanded(
                           child: OutlinedButton.icon(
                             onPressed: () {
-                              context.read<CartProvider>().addItem(
-                                    product,
-                                    _quantity,
+                              AuthHelper.checkLoginAndExecute(
+                                context,
+                                message: 'Silakan masuk terlebih dahulu untuk menambahkan produk ke keranjang belanja Anda.',
+                                onAuthenticated: () {
+                                  context.read<CartProvider>().addItem(
+                                        product,
+                                        _quantity,
+                                      );
+                                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        '${product.name} (Ukuran $_selectedSize) ditambahkan ke keranjang!',
+                                      ),
+                                      backgroundColor: AppColors.success,
+                                      duration: const Duration(seconds: 2),
+                                    ),
                                   );
-                              ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    '${product.name} (Size $_selectedSize) added to cart!',
-                                  ),
-                                  backgroundColor: AppColors.success,
-                                  duration: const Duration(seconds: 2),
-                                ),
+                                },
                               );
                             },
                             style: OutlinedButton.styleFrom(
@@ -478,11 +485,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         Expanded(
                           child: ElevatedButton(
                             onPressed: () {
-                              context.read<CartProvider>().addItem(
-                                    product,
-                                    _quantity,
+                              AuthHelper.checkLoginAndExecute(
+                                context,
+                                message: 'Silakan masuk terlebih dahulu untuk melakukan pembelian produk.',
+                                onAuthenticated: () {
+                                  final directItem = CartItem(
+                                    product: product,
+                                    quantity: _quantity,
                                   );
-                              context.push('/order-form');
+                                  context.push('/order-form', extra: directItem);
+                                },
+                              );
                             },
                             style: ElevatedButton.styleFrom(
                               minimumSize: const Size(0, 56),
@@ -615,9 +628,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         CircleAvatar(
                           backgroundColor: Colors.white.withValues(alpha: 0.9),
                           child: IconButton(
-                            onPressed: () {
-                              productProvider.toggleFavorite(product.id as String);
-                            },
+                             onPressed: () {
+                               AuthHelper.checkLoginAndExecute(
+                                 context,
+                                 message: 'Silakan masuk terlebih dahulu untuk menambahkan produk ini ke daftar Wishlist Anda.',
+                                 onAuthenticated: () {
+                                   productProvider.toggleFavorite(product.id as String);
+                                 },
+                               );
+                             },
                             icon: Icon(
                               isFav ? Icons.favorite : Icons.favorite_border,
                               color: isFav ? AppColors.accent : AppColors.textPrimary,
