@@ -97,7 +97,7 @@ class _SplashScreenState extends State<SplashScreen>
 
                 // App Name
                 Text(
-                  'SoleStep Footwear',
+                  'Kixora Sneakers',
                   style: AppTextStyles.h1.copyWith(
                     color: Colors.white,
                     fontSize: 30,

@@ -25,10 +25,10 @@ class OrderSuccessScreen extends StatelessWidget {
     final String orderId = order?.id ?? '';
     final String displayId = orderId.length > 8
         ? orderId.substring(0, 8).toUpperCase()
-        : (orderId.isNotEmpty ? orderId.toUpperCase() : 'SOLESTEP-88');
+        : (orderId.isNotEmpty ? orderId.toUpperCase() : 'KIXORA-88');
 
     final double totalPay = order?.totalPrice ?? 0.0;
-    final String customerName = order?.customerName ?? 'Pelanggan SoleStep';
+    final String customerName = order?.customerName ?? 'Pelanggan Kixora';
     final String customerPhone = order?.customerPhone ?? '081234567890';
     final String address = order?.address ?? 'Alamat Pemesanan';
 
@@ -83,7 +83,7 @@ class OrderSuccessScreen extends StatelessWidget {
               const SizedBox(height: 8),
 
               Text(
-                'Terima kasih telah berbelanja di SoleStep Footwear.\nPesanan Anda telah tersimpan dan siap diproses ke alamat tujuan.',
+                'Terima kasih telah berbelanja di Kixora Sneakers.\nPesanan Anda telah tersimpan dan siap diproses ke alamat tujuan.',
                 style: AppTextStyles.bodyMedium.copyWith(
                   color: AppColors.textSecondary,
                   height: 1.4,

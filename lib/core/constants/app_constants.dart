@@ -1,7 +1,7 @@
 class AppConstants {
   AppConstants._();
 
-  static const String appName = 'SoleStep Footwear';
+  static const String appName = 'Kixora Sneakers';
   static const int connectionTimeout = 15000;
   static const int receiveTimeout = 15000;
   static const int cacheDuration = 3600;

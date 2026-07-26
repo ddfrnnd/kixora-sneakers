@@ -71,7 +71,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   // Email
                   CustomTextField(
                     label: 'Email',
-                    hint: 'admin@solestep.com',
+                    hint: 'admin@kixora.com',
                     controller: _emailController,
                     validator: Validator.validateEmail,
                     keyboardType: TextInputType.emailAddress,

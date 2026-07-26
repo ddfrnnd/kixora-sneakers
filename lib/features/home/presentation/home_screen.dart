@@ -915,7 +915,7 @@ class _HomeScreenState extends State<HomeScreen> {
             final items = (data['items'] as List?) ?? [];
             final firstItemName = items.isNotEmpty
                 ? (items.first['product_name'] ?? 'Sepatu')
-                : 'Sepatu SoleStep';
+                : 'Sepatu Authentic';
             final String? firstItemImg = items.isNotEmpty
                 ? (items.first['image_url'] ?? items.first['imageUrl'])
                 : null;
@@ -1090,7 +1090,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         onPressed: () {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('SoleStep App v1.0.0 - Authentic Sneakers'),
+                              content: Text('Kixora Sneakers App v1.0.0 - Authentic Sneakers'),
                               backgroundColor: AppColors.primary,
                             ),
                           );
@@ -1277,7 +1277,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                Text('SoleStep Footwear', style: AppTextStyles.h3),
+                Text('Kixora Sneakers', style: AppTextStyles.h3),
                 const SizedBox(height: 8),
                 Text(
                   'Login atau daftar akun untuk kemudahan memesan sepatu favoritmu',
@@ -1324,7 +1324,7 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Ubah nama tampilan profil Anda di SoleStep Footwear.',
+                'Ubah nama tampilan profil Anda di Kixora Sneakers.',
                 style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
               ),
               const SizedBox(height: 16),
@@ -1401,10 +1401,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              Text('Kebijakan Privasi SoleStep', style: AppTextStyles.h2),
+              Text('Kebijakan Privasi Kixora Sneakers', style: AppTextStyles.h2),
               const SizedBox(height: 16),
               Text(
-                'Privasi Anda adalah prioritas kami. Di SoleStep Footwear, kami berkomitmen untuk melindungi informasi pribadi Anda.',
+                'Privasi Anda adalah prioritas kami. Di Kixora Sneakers, kami berkomitmen untuk melindungi informasi pribadi Anda.',
                 style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
@@ -1473,12 +1473,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   const HugeIcon(icon: HugeIcons.strokeRoundedMailAtSign01, color: AppColors.primary, size: 20),
                   const SizedBox(width: 12),
-                  Text('Email: support@solestep.com', style: AppTextStyles.bodyMedium),
+                  Text('Email: support@kixora.com', style: AppTextStyles.bodyMedium),
                 ],
               ),
               const SizedBox(height: 16),
               Text(
-                'Semua produk yang dijual di aplikasi SoleStep dijamin 100% Original & Authentic langsung terintegrasi dengan KicksDB Catalog.',
+                'Semua produk yang dijual di aplikasi Kixora Sneakers dijamin 100% Original & Authentic langsung terintegrasi dengan KicksDB Catalog.',
                 style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
               ),
               const SizedBox(height: 24),

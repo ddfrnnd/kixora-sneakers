@@ -418,7 +418,7 @@ class SpecialOffersScreen extends StatelessWidget {
               Text('Detail Promo & Syarat Ketentuan', style: AppTextStyles.h3),
               const SizedBox(height: 8),
               Text(
-                'Dapatkan potongan harga sebesar ${offer.discount} untuk setiap pemesanan sepatu pilihan Anda di aplikasi SoleStep Footwear.',
+                'Dapatkan potongan harga sebesar ${offer.discount} untuk setiap pemesanan sepatu pilihan Anda di aplikasi Kixora Sneakers.',
                 style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
               ),
               const SizedBox(height: 12),

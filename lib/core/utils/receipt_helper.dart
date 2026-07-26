@@ -53,7 +53,7 @@ class ReceiptHelper {
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
                         children: [
                           pw.Text(
-                            "SOLESTEP FOOTWEAR",
+                            "KIXORA SNEAKERS",
                             style: pw.TextStyle(
                               color: PdfColors.white,
                               fontSize: 22,
@@ -260,7 +260,7 @@ class ReceiptHelper {
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
                         pw.Text(
-                          "SoleStep Footwear Guarantee",
+                          "Kixora Sneakers Guarantee",
                           style: pw.TextStyle(
                             fontSize: 11,
                             fontWeight: pw.FontWeight.bold,

@@ -45,7 +45,7 @@ class _CustomerReviewsScreenState extends State<CustomerReviewsScreen> {
             final data = doc.data() as Map<String, dynamic>;
             reviewsList.add(
               ReviewItemData(
-                name: data['user_name'] ?? 'Pelanggan SoleStep',
+                name: data['user_name'] ?? 'Pelanggan Kixora',
                 avatarUrl: data['avatar_url'] ?? 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
                 rating: (data['rating'] as num?)?.toInt() ?? 5,
                 comment: data['comment'] ?? 'Ulasan produk sepatu yang sangat memuaskan!',

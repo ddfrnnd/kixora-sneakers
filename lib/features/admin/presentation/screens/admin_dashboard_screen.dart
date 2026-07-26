@@ -213,7 +213,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Toko SoleStep Footwear berjalan lancar. Ada $pendingOrders pesanan butuh respon.',
+                        'Toko Kixora Sneakers berjalan lancar. Ada $pendingOrders pesanan butuh respon.',
                         style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
                       ),
                     ],
@@ -495,8 +495,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   onPressed: () async {
                     await ReceiptHelper.saveReceiptToDevice(
                       context: context,
-                      orderId: '#REKAP-SOLESTEP',
-                      recipientName: 'Pemilik Toko SoleStep',
+                      orderId: '#REKAP-KIXORA',
+                      recipientName: 'Pemilik Toko Kixora',
                       recipientPhone: '08123456789',
                       address: 'Laporan Rekapitulasi Penjualan Resmi',
                       totalPrice: totalRevenue,
@@ -637,9 +637,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   child: HugeIcon(icon: HugeIcons.strokeRoundedUser, color: Colors.white, size: 36),
                 ),
                 const SizedBox(height: 12),
-                Text('Admin SoleStep', style: AppTextStyles.h2.copyWith(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text('Admin Kixora', style: AppTextStyles.h2.copyWith(fontSize: 18, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
-                Text('admin@solestep.com', style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary)),
+                Text('admin@kixora.com', style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary)),
                 const SizedBox(height: 10),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -655,7 +655,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           const SizedBox(height: 20),
 
           // Setting Options List
-          _buildProfileTile(title: 'Pengaturan Toko SoleStep', icon: HugeIcons.strokeRoundedStore01, onTap: () {}),
+          _buildProfileTile(title: 'Pengaturan Toko Kixora', icon: HugeIcons.strokeRoundedStore01, onTap: () {}),
           _buildProfileTile(title: 'Kelola Hak Akses Staff', icon: HugeIcons.strokeRoundedUserGroup, onTap: () {}),
           _buildProfileTile(title: 'Keamanan & Ganti Password', icon: HugeIcons.strokeRoundedLock, onTap: () {}),
           _buildProfileTile(title: 'Kebijakan Privasi & Ketentuan', icon: HugeIcons.strokeRoundedDocumentCode, onTap: () {}),

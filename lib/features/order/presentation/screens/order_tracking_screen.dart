@@ -38,7 +38,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     final firstItem = items.isNotEmpty ? items.first : {};
     final String productName = firstItem['product_name'] ?? 'Sepatu Authentic';
     final String? imgUrl = firstItem['image_url'] ?? firstItem['imageUrl'];
-    final String customerName = orderData['customer_name'] ?? 'Pelanggan SoleStep';
+    final String customerName = orderData['customer_name'] ?? 'Pelanggan Kixora';
 
     showModalBottomSheet(
       context: context,
@@ -356,15 +356,15 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
           final double totalPrice = (orderData['total_price'] as num?)?.toDouble() ?? 0.0;
           final List items = (orderData['items'] as List?) ?? [];
           final Map firstItem = items.isNotEmpty ? items.first : {};
-          final String productName = firstItem['product_name'] ?? 'Sepatu SoleStep';
+          final String productName = firstItem['product_name'] ?? 'Sepatu Authentic';
           final String? imgUrl = firstItem['image_url'] ?? firstItem['imageUrl'];
-          final String recipientName = orderData['customer_name'] ?? 'Pelanggan SoleStep';
+          final String recipientName = orderData['customer_name'] ?? 'Pelanggan Kixora';
           final String recipientPhone = orderData['customer_phone'] ?? '081234567890';
           final String address = orderData['address'] ?? 'Alamat Pemesanan';
 
           final displayId = currentDocId.length > 8
               ? currentDocId.substring(0, 8).toUpperCase()
-              : (currentDocId.isNotEmpty ? currentDocId.toUpperCase() : 'SOLESTEP-88');
+              : (currentDocId.isNotEmpty ? currentDocId.toUpperCase() : 'KIXORA-88');
 
           final bool isShipped = status == 'Dikirim' || status == 'Selesai';
           final bool isCompleted = status == 'Selesai';
@@ -533,7 +533,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                       const SizedBox(height: 6),
                       Text(
                         isCompleted
-                            ? 'Terima kasih atas ulasan & kepercayaan Anda pada SoleStep Footwear!'
+                            ? 'Terima kasih atas ulasan & kepercayaan Anda pada Kixora Sneakers.'
                             : 'Konfirmasi penerimaan paket dan berikan ulasan serta bintang penilaian Anda.',
                         textAlign: TextAlign.center,
                         style: AppTextStyles.caption.copyWith(
@@ -612,7 +612,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                             totalPrice: totalPrice,
                             items: items.map((it) {
                               return {
-                                'name': it['product_name'] ?? 'Sepatu SoleStep',
+                                'name': it['product_name'] ?? 'Sepatu Authentic',
                                 'quantity': (it['quantity'] as num?)?.toInt() ?? 1,
                                 'price': (it['price'] as num?)?.toDouble() ?? totalPrice,
                               };
