@@ -20,7 +20,7 @@ class ProductListScreen extends StatefulWidget {
 
 class _ProductListScreenState extends State<ProductListScreen> {
   final TextEditingController _searchController = TextEditingController();
-  List<String> _recentSearches = ['Nike Air Force', 'Adidas Yeezy', 'Jordan Retro'];
+  final List<String> _recentSearches = ['Nike Air Force', 'Adidas Yeezy', 'Jordan Retro'];
 
   String _selectedCategoryFilter = 'All';
   String _selectedGenderFilter = 'All';
@@ -35,6 +35,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
         provider.setCategory(widget.brand!);
         provider.syncFromKicksDev(query: widget.brand!);
       } else {
+        provider.resetFilters();
         provider.fetchProducts();
       }
     });
@@ -44,6 +45,12 @@ class _ProductListScreenState extends State<ProductListScreen> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _handlePop() {
+    try {
+      context.read<ProductProvider>().resetFilters();
+    } catch (_) {}
   }
 
   void _showSortFilterBottomSheet() {
@@ -259,36 +266,99 @@ class _ProductListScreenState extends State<ProductListScreen> {
     );
   }
 
+  String _getFormattedBrandName(String raw) {
+    if (raw.trim().isEmpty) return raw;
+    final lower = raw.trim().toLowerCase();
+    switch (lower) {
+      case 'nike':
+        return 'Nike';
+      case 'adidas':
+        return 'Adidas';
+      case 'jordan':
+        return 'Jordan';
+      case 'puma':
+        return 'Puma';
+      case 'converse':
+        return 'Converse';
+      case 'vans':
+        return 'Vans';
+      case 'new balance':
+      case 'new_balance':
+        return 'New Balance';
+      case 'reebok':
+        return 'Reebok';
+      default:
+        return raw[0].toUpperCase() + raw.substring(1);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // 1. Header (Back button, Search Input + Clear, Tune Filter Icon)
-            _buildSearchHeader(),
+    final isBrandMode = widget.brand != null;
 
-            // 2. Main Content
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Recent Searches
-                    if (_recentSearches.isNotEmpty && _searchController.text.isEmpty)
-                      _buildRecentSearches(),
-
-                    // Results Status Header
-                    _buildResultsHeader(),
-
-                    // Product Grid or Empty State
-                    _buildProductGrid(),
-                  ],
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) {
+          _handlePop();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: isBrandMode
+            ? AppBar(
+                backgroundColor: AppColors.background,
+                elevation: 0,
+                leading: IconButton(
+                  onPressed: () {
+                    _handlePop();
+                    context.pop();
+                  },
+                  icon: const HugeIcon(
+                    icon: HugeIcons.strokeRoundedArrowLeft01,
+                    color: AppColors.textPrimary,
+                    size: 24,
+                  ),
+                ),
+                title: Text(
+                  _getFormattedBrandName(widget.brand!),
+                  style: AppTextStyles.h2.copyWith(fontSize: 20),
+                ),
+                actions: [
+                  IconButton(
+                    onPressed: () => context.push('/products'),
+                    icon: const HugeIcon(
+                      icon: HugeIcons.strokeRoundedSearch01,
+                      color: AppColors.textPrimary,
+                      size: 24,
+                    ),
+                    tooltip: 'Search',
+                  ),
+                  const SizedBox(width: 8),
+                ],
+              )
+            : null,
+        body: SafeArea(
+          child: Column(
+            children: [
+              if (!isBrandMode) _buildSearchHeader(),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (!isBrandMode &&
+                          _recentSearches.isNotEmpty &&
+                          _searchController.text.isEmpty)
+                        _buildRecentSearches(),
+                      if (!isBrandMode) _buildResultsHeader(),
+                      _buildProductGrid(),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -300,7 +370,10 @@ class _ProductListScreenState extends State<ProductListScreen> {
       child: Row(
         children: [
           IconButton(
-            onPressed: () => context.pop(),
+            onPressed: () {
+              _handlePop();
+              context.pop();
+            },
             icon: const HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, color: AppColors.textPrimary),
           ),
           const SizedBox(width: 4),

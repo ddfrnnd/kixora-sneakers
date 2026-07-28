@@ -8,7 +8,7 @@ class ApiConstants {
 
   // Kicks.dev API Configuration
   static String get kicksApiKey =>
-      dotenv.isInitialized ? (dotenv.env['KICKS_API_KEY'] ?? 'KICKS-9592-717B-B33C-1C7D1C71A299') : 'KICKS-9592-717B-B33C-1C7D1C71A299';
+      dotenv.isInitialized ? (dotenv.env['KICKS_API_KEY'] ?? '') : '';
 
   static String get kicksApiBaseUrl =>
       dotenv.isInitialized ? (dotenv.env['KICKS_API_BASE_URL'] ?? 'https://api.kicks.dev/v3') : 'https://api.kicks.dev/v3';
@@ -26,7 +26,7 @@ class ApiConstants {
       dotenv.isInitialized ? (dotenv.env['MAP_USER_AGENT'] ?? 'com.solestep.app') : 'com.solestep.app';
 
   static String get firebaseProjectId =>
-      dotenv.isInitialized ? (dotenv.env['FIREBASE_PROJECT_ID'] ?? 'toko-fashion-cc521') : 'toko-fashion-cc521';
+      dotenv.isInitialized ? (dotenv.env['FIREBASE_PROJECT_ID'] ?? '') : '';
 
   // Product endpoints
   static const String products = '/products';

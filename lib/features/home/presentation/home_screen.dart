@@ -266,17 +266,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 IconButton(
                   onPressed: () async {
                     final provider = context.read<ProductProvider>();
+                    final messenger = ScaffoldMessenger.of(context);
                     await provider.syncFromKicksDev(query: 'jordan');
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            '⚡ Live sepatu dari Kicks.dev API berhasil disinkronkan!',
-                          ),
-                          backgroundColor: AppColors.success,
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          '⚡ Live sepatu dari Kicks.dev API berhasil disinkronkan!',
                         ),
-                      );
-                    }
+                        backgroundColor: AppColors.success,
+                      ),
+                    );
                   },
                   icon: HugeIcon(
                     icon: HugeIcons.strokeRoundedRefresh,
@@ -638,11 +637,14 @@ class _HomeScreenState extends State<HomeScreen> {
                       padding: const EdgeInsets.only(right: 10),
                       child: GestureDetector(
                         onTap: () {
+                          setState(() => _selectedBrandFilter = brand);
+                          final provider = context.read<ProductProvider>();
                           if (brand == 'All') {
-                            setState(() => _selectedBrandFilter = brand);
-                            context.read<ProductProvider>().setCategory('Semua');
+                            provider.resetFilters();
+                            provider.fetchProducts();
                           } else {
-                            context.push('/products/brand/${brand.toLowerCase()}');
+                            provider.setCategory(brand);
+                            provider.syncFromKicksDev(query: brand.toLowerCase());
                           }
                         },
                         child: Container(
@@ -720,7 +722,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildBrandItem(String label, {String? svgAsset, List<List<dynamic>>? icon}) {
     return GestureDetector(
-      onTap: () => context.push('/products/brand/${label.toLowerCase()}', extra: label),
+      onTap: () async {
+        final provider = context.read<ProductProvider>();
+        await context.push('/products/brand/${label.toLowerCase()}', extra: label);
+        if (mounted) {
+          setState(() => _selectedBrandFilter = 'All');
+          provider.resetFilters();
+        }
+      },
       child: Column(
         children: [
           Container(

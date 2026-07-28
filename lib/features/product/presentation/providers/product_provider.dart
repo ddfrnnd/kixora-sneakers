@@ -154,14 +154,14 @@ class ProductProvider extends ChangeNotifier {
     _ensureUniquePrices();
     _filteredProducts = _products;
 
-    if (_selectedCategory != 'Semua' && _selectedCategory != 'All') {
-      final queryLower = _selectedCategory.toLowerCase();
+    final catLower = _selectedCategory.trim().toLowerCase();
+    if (catLower != 'semua' && catLower != 'all' && catLower.isNotEmpty) {
       _filteredProducts = _filteredProducts.where((p) {
-        final catLower = p.category.toLowerCase();
-        final nameLower = p.name.toLowerCase();
-        return catLower.contains(queryLower) ||
-               nameLower.contains(queryLower) ||
-               queryLower.contains(catLower);
+        final itemCatLower = p.category.toLowerCase();
+        final itemNameLower = p.name.toLowerCase();
+        return itemCatLower.contains(catLower) ||
+               itemNameLower.contains(catLower) ||
+               catLower.contains(itemCatLower);
       }).toList();
     }
 
@@ -175,9 +175,17 @@ class ProductProvider extends ChangeNotifier {
     }
   }
 
-  /// Clear selected product
+  /// Reset selected product
   void clearSelectedProduct() {
     _selectedProduct = null;
+  }
+
+  /// Reset category and search filters back to default ('Semua' / all products)
+  void resetFilters() {
+    _selectedCategory = 'Semua';
+    _searchQuery = '';
+    _applyFilters();
+    notifyListeners();
   }
 
   // Wishlist / Favorites methods
