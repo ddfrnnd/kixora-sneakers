@@ -3,20 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:fashion_ecommerce/app/theme/app_colors.dart';
 import 'package:fashion_ecommerce/app/theme/app_text_styles.dart';
-
-class AddressItem {
-  final String id;
-  String title;
-  String fullAddress;
-  bool isDefault;
-
-  AddressItem({
-    required this.id,
-    required this.title,
-    required this.fullAddress,
-    this.isDefault = false,
-  });
-}
+import 'package:fashion_ecommerce/features/profile/data/models/address_item.dart';
+import 'package:fashion_ecommerce/features/profile/data/repositories/address_repository.dart';
 
 class AddressListScreen extends StatefulWidget {
   const AddressListScreen({super.key});
@@ -26,40 +14,27 @@ class AddressListScreen extends StatefulWidget {
 }
 
 class _AddressListScreenState extends State<AddressListScreen> {
-  final List<AddressItem> _addresses = [
-    AddressItem(
-      id: '1',
-      title: 'Home',
-      fullAddress: '61480 Sunbrook Park, PC 5679',
-      isDefault: true,
-    ),
-    AddressItem(
-      id: '2',
-      title: 'Office',
-      fullAddress: '6993 Meadow Valley Terra, PC 3637',
-      isDefault: false,
-    ),
-    AddressItem(
-      id: '3',
-      title: 'Apartment',
-      fullAddress: '21833 Clyde Gallagher, PC 4662',
-      isDefault: false,
-    ),
-    AddressItem(
-      id: '4',
-      title: "Parent's House",
-      fullAddress: '5259 Blue Bill Park, PC 4627',
-      isDefault: false,
-    ),
-    AddressItem(
-      id: '5',
-      title: 'Town Square',
-      fullAddress: '5375 Summerhouse, PC 4627',
-      isDefault: false,
-    ),
-  ];
+  final AddressRepository _addressRepository = AddressRepository();
+  List<AddressItem> _addresses = [];
+  bool _isLoading = true;
 
-  void _setDefaultAddress(String id) {
+  @override
+  void initState() {
+    super.initState();
+    _loadAddresses();
+  }
+
+  Future<void> _loadAddresses() async {
+    final addresses = await _addressRepository.getAddresses();
+    if (!mounted) return;
+    setState(() {
+      _addresses = addresses;
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _setDefaultAddress(String id) async {
+    await _addressRepository.setDefaultAddress(id);
     setState(() {
       for (var item in _addresses) {
         item.isDefault = (item.id == id);
@@ -154,26 +129,23 @@ class _AddressListScreenState extends State<AddressListScreen> {
                 width: double.infinity,
                 height: 54,
                 child: ElevatedButton(
-                  onPressed: () {
+                  onPressed: () async {
                     final title = titleController.text.trim();
                     final fullAddr = addressController.text.trim();
 
                     if (title.isNotEmpty && fullAddr.isNotEmpty) {
-                      setState(() {
-                        if (itemToEdit == null) {
-                          _addresses.add(
-                            AddressItem(
-                              id: DateTime.now().millisecondsSinceEpoch.toString(),
-                              title: title,
-                              fullAddress: fullAddr,
-                              isDefault: _addresses.isEmpty,
-                            ),
+                      final address = itemToEdit ??
+                          AddressItem(
+                            id: DateTime.now().millisecondsSinceEpoch.toString(),
+                            title: title,
+                            fullAddress: fullAddr,
+                            isDefault: _addresses.isEmpty,
                           );
-                        } else {
-                          itemToEdit.title = title;
-                          itemToEdit.fullAddress = fullAddr;
-                        }
-                      });
+                      address.title = title;
+                      address.fullAddress = fullAddr;
+                      await _addressRepository.saveAddress(address);
+                      await _loadAddresses();
+                      if (!mounted) return;
                       Navigator.pop(context);
                       ScaffoldMessenger.of(context).hideCurrentSnackBar();
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -238,12 +210,14 @@ class _AddressListScreenState extends State<AddressListScreen> {
     final result = await context.push<AddressItem>('/address/add');
     if (result != null) {
       setState(() {
-        if (result.isDefault) {
+        _addresses.removeWhere((item) => item.id == result.id);
+        if (result.isDefault || _addresses.isEmpty) {
           for (var item in _addresses) {
             item.isDefault = false;
           }
+          result.isDefault = true;
         }
-        _addresses.add(result);
+        _addresses.insert(0, result);
       });
       if (mounted) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -281,14 +255,28 @@ class _AddressListScreenState extends State<AddressListScreen> {
       body: Stack(
         children: [
           // Address Cards Scrollable List
-          ListView.builder(
+          if (_isLoading)
+            const Center(child: CircularProgressIndicator(color: AppColors.primary))
+          else if (_addresses.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: Text(
+                  'Belum ada alamat tersimpan. Tambahkan alamat agar bisa dipakai saat checkout.',
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
+                ),
+              ),
+            )
+          else
+            ListView.builder(
             padding: const EdgeInsets.fromLTRB(20, 10, 20, 110),
             itemCount: _addresses.length,
             itemBuilder: (context, index) {
               final address = _addresses[index];
               return _buildAddressCard(address);
             },
-          ),
+            ),
 
           // Sticky Footer Button
           Positioned(
@@ -476,15 +464,10 @@ class _AddressListScreenState extends State<AddressListScreen> {
               child: const Text('Batal', style: TextStyle(color: AppColors.textSecondary)),
             ),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 Navigator.pop(context);
-                setState(() {
-                  final wasDefault = address.isDefault;
-                  _addresses.removeWhere((item) => item.id == address.id);
-                  if (wasDefault && _addresses.isNotEmpty) {
-                    _addresses.first.isDefault = true;
-                  }
-                });
+                await _addressRepository.deleteAddress(address.id);
+                await _loadAddresses();
 
                 ScaffoldMessenger.of(context).hideCurrentSnackBar();
                 ScaffoldMessenger.of(context).showSnackBar(

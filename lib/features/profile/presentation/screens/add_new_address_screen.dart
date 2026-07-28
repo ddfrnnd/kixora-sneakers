@@ -8,7 +8,8 @@ import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:fashion_ecommerce/app/theme/app_colors.dart';
 import 'package:fashion_ecommerce/app/theme/app_text_styles.dart';
-import 'package:fashion_ecommerce/features/profile/presentation/screens/address_list_screen.dart';
+import 'package:fashion_ecommerce/features/profile/data/models/address_item.dart';
+import 'package:fashion_ecommerce/features/profile/data/repositories/address_repository.dart';
 
 class AddNewAddressScreen extends StatefulWidget {
   const AddNewAddressScreen({super.key});
@@ -300,7 +301,7 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
     );
   }
 
-  void _saveAddress() {
+  Future<void> _saveAddress() async {
     final name = _nameController.text.trim();
     final addressText = _addressController.text.trim();
 
@@ -318,9 +319,14 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       title: name,
       fullAddress: addressText,
+      latitude: _currentLatLng.latitude,
+      longitude: _currentLatLng.longitude,
       isDefault: _isDefault,
     );
 
+    await AddressRepository().saveAddress(newAddress);
+
+    if (!mounted) return;
     context.pop(newAddress);
   }
 
@@ -609,10 +615,17 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
                               decoration: InputDecoration(
                                 hintText: 'Cari jalan, kelurahan, atau kota...',
                                 hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
-                                prefixIcon: const HugeIcon(
-                                  icon: HugeIcons.strokeRoundedSearch01,
-                                  color: AppColors.primary,
-                                  size: 18,
+                                prefixIconConstraints: const BoxConstraints(
+                                  minWidth: 48,
+                                  minHeight: 48,
+                                ),
+                                prefixIcon: const Padding(
+                                  padding: EdgeInsets.only(left: 16, right: 12),
+                                  child: HugeIcon(
+                                    icon: HugeIcons.strokeRoundedSearch01,
+                                    color: AppColors.textSecondary,
+                                    size: 20,
+                                  ),
                                 ),
                                 suffixIcon: _searchController.text.isNotEmpty
                                     ? IconButton(

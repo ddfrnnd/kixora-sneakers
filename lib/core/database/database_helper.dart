@@ -5,7 +5,7 @@ import 'package:path/path.dart';
 class DatabaseHelper {
   static Database? _database;
   static const String _dbName = 'solestep_footwear.db';
-  static const int _dbVersion = 1;
+  static const int _dbVersion = 2;
 
   DatabaseHelper._();
   static final DatabaseHelper instance = DatabaseHelper._();
@@ -76,10 +76,28 @@ class DatabaseHelper {
         FOREIGN KEY (order_id) REFERENCES orders(id)
       )
     ''');
+
+    await _createAddressesTable(db);
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // Handle future migrations
+    if (oldVersion < 2) {
+      await _createAddressesTable(db);
+    }
+  }
+
+  Future<void> _createAddressesTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS addresses(
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        full_address TEXT NOT NULL,
+        latitude REAL,
+        longitude REAL,
+        is_default INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT
+      )
+    ''');
   }
 
   Future<void> close() async {

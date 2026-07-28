@@ -12,26 +12,10 @@ import 'package:fashion_ecommerce/features/order/presentation/providers/order_pr
 import 'package:fashion_ecommerce/features/order/presentation/providers/location_provider.dart';
 import 'package:fashion_ecommerce/features/order/presentation/widgets/gps_location_card.dart';
 import 'package:fashion_ecommerce/features/order/presentation/widgets/map_preview_widget.dart';
+import 'package:fashion_ecommerce/features/profile/data/models/address_item.dart';
+import 'package:fashion_ecommerce/features/profile/data/repositories/address_repository.dart';
 import 'package:fashion_ecommerce/shared/widgets/custom_button.dart';
 import 'package:fashion_ecommerce/shared/widgets/custom_text_field.dart';
-
-class SavedProfileAddress {
-  final String id;
-  final String label;
-  final String fullAddress;
-  final double latitude;
-  final double longitude;
-  final bool isDefault;
-
-  SavedProfileAddress({
-    required this.id,
-    required this.label,
-    required this.fullAddress,
-    required this.latitude,
-    required this.longitude,
-    this.isDefault = false,
-  });
-}
 
 class OrderFormScreen extends StatefulWidget {
   final CartItem? directItem;
@@ -49,41 +33,11 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
   final _addressController = TextEditingController();
   final _promoController = TextEditingController();
 
-  SavedProfileAddress? _selectedProfileAddress;
+  final AddressRepository _addressRepository = AddressRepository();
+  AddressItem? _selectedProfileAddress;
   String _selectedPaymentMethod = 'COD';
   bool _isSubmitting = false;
-
-  final List<SavedProfileAddress> _savedProfileAddresses = [
-    SavedProfileAddress(
-      id: '1',
-      label: 'Home (Utama)',
-      fullAddress: 'Jl. Sudirman No. 45, Jakarta Selatan, 12190',
-      latitude: -6.2088,
-      longitude: 106.8456,
-      isDefault: true,
-    ),
-    SavedProfileAddress(
-      id: '2',
-      label: 'Office / Kantor',
-      fullAddress: 'Gedung Menara Mandiri Lt. 12, Jl. Jend. Gatot Subroto, Jakarta Pusat',
-      latitude: -6.1754,
-      longitude: 106.8272,
-    ),
-    SavedProfileAddress(
-      id: '3',
-      label: 'Apartment',
-      fullAddress: 'Tower B Lt. 18 Unit 05, Apt. Sudirman Hill, Jakarta',
-      latitude: -6.2297,
-      longitude: 106.8091,
-    ),
-    SavedProfileAddress(
-      id: '4',
-      label: "Rumah Orang Tua",
-      fullAddress: 'Jl. Melati Indah No. 12, Kebayoran Baru, Jakarta Selatan',
-      latitude: -6.1912,
-      longitude: 106.8234,
-    ),
-  ];
+  List<AddressItem> _savedProfileAddresses = [];
 
   @override
   void initState() {
@@ -94,9 +48,7 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
         _nameController.text = auth.user!.name;
       }
 
-      // Pre-select default profile address & set map coordinates to saved profile address
-      final defaultAddr = _savedProfileAddresses.firstWhere((a) => a.isDefault, orElse: () => _savedProfileAddresses.first);
-      _selectSavedProfileAddress(defaultAddr, showToast: false);
+      await _loadSavedAddresses();
     });
   }
 
@@ -116,7 +68,18 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
         );
   }
 
-  void _selectSavedProfileAddress(SavedProfileAddress addr, {bool showToast = true}) {
+  Future<void> _loadSavedAddresses() async {
+    final addresses = await _addressRepository.getAddresses();
+    if (!mounted) return;
+
+    setState(() => _savedProfileAddresses = addresses);
+    if (addresses.isNotEmpty) {
+      final defaultAddr = addresses.firstWhere((a) => a.isDefault, orElse: () => addresses.first);
+      _selectSavedProfileAddress(defaultAddr, showToast: false);
+    }
+  }
+
+  void _selectSavedProfileAddress(AddressItem addr, {bool showToast = true}) {
     setState(() {
       _selectedProfileAddress = addr;
       _addressController.text = addr.fullAddress;
@@ -125,15 +88,15 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
     // Update location provider address & geocode coordinates to update map preview
     context.read<LocationProvider>().setAddressAndGeocode(
           addr.fullAddress,
-          fallbackLat: addr.latitude,
-          fallbackLng: addr.longitude,
+          fallbackLat: addr.latitude ?? -6.2088,
+          fallbackLng: addr.longitude ?? 106.8456,
         );
 
     if (showToast) {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Alamat dipilih: ${addr.label}'),
+          content: Text('Alamat dipilih: ${addr.title}'),
           backgroundColor: AppColors.primary,
           duration: const Duration(seconds: 2),
         ),
@@ -183,7 +146,16 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Saved Addresses List
+              if (_savedProfileAddresses.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  child: Text(
+                    'Belum ada alamat tersimpan. Tambahkan alamat dari menu Address profil terlebih dahulu.',
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
+                  ),
+                ),
+
               ..._savedProfileAddresses.map((addr) {
                 final isSelected = _selectedProfileAddress?.id == addr.id;
                 return Container(
@@ -216,7 +188,7 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
                     title: Row(
                       children: [
                         Text(
-                          addr.label,
+                          addr.title,
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 15,
@@ -415,7 +387,7 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
               // GPS / Selected Address Card Display
               Consumer<LocationProvider>(
                 builder: (context, location, _) {
-                  final String title = _selectedProfileAddress?.label ?? 'Lokasi GPS Saat Ini';
+                  final String title = _selectedProfileAddress?.title ?? 'Lokasi GPS Saat Ini';
                   final String currentDisplayAddress = _addressController.text.isNotEmpty
                       ? _addressController.text
                       : (location.addressText != null && location.addressText!.isNotEmpty
