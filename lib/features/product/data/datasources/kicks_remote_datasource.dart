@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:fashion_ecommerce/core/constants/api_constants.dart';
 import 'package:fashion_ecommerce/core/utils/logger.dart';
 import 'package:fashion_ecommerce/features/product/data/models/product_model.dart';
 import 'package:fashion_ecommerce/features/product/domain/entities/product.dart';
@@ -6,8 +7,9 @@ import 'package:fashion_ecommerce/features/product/domain/entities/product.dart'
 /// Datasource untuk mengambil data sepatu live dari KicksDB API (kicks.dev)
 class KicksRemoteDatasource {
   final Dio _dio;
-  static const String _baseUrl = 'https://api.kicks.dev/v3';
-  static const String apiKey = 'KICKS-9592-717B-B33C-1C7D1C71A299';
+
+  static String get _baseUrl => ApiConstants.kicksApiBaseUrl;
+  static String get apiKey => ApiConstants.kicksApiKey;
 
   KicksRemoteDatasource({Dio? dio})
       : _dio = dio ??

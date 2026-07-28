@@ -6,6 +6,13 @@ class ApiConstants {
   static String get baseUrl =>
       dotenv.env['API_BASE_URL'] ?? 'https://api.solestep.com/v1';
 
+  // Kicks.dev API Configuration
+  static String get kicksApiKey =>
+      dotenv.env['KICKS_API_KEY'] ?? '';
+
+  static String get kicksApiBaseUrl =>
+      dotenv.env['KICKS_API_BASE_URL'] ?? 'https://api.kicks.dev/v3';
+
   // Timeout
   static const int connectTimeout = 15000;
   static const int receiveTimeout = 15000;

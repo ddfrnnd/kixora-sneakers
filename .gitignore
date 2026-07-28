@@ -39,6 +39,7 @@ migrate_working_dir/
 *.p12
 google-services.json
 GoogleService-Info.plist
+firebase_options.dart
 lib/firebase_options.dart
 
 # Symbolication related
@@ -51,3 +52,9 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Documentation & PDF references
+*.pdf
+PRD.md
+FOLDER_STRUCTURE.md
+DESIGN.md
