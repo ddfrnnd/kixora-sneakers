@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:fashion_ecommerce/app/app.dart';
 import 'package:fashion_ecommerce/firebase_options.dart';
@@ -6,6 +7,13 @@ import 'package:fashion_ecommerce/core/database/seed_data.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Load environment variables
+  try {
+    await dotenv.load(fileName: ".env");
+  } catch (e) {
+    debugPrint('Dotenv load info: $e');
+  }
 
   // Initialize Firebase with generated options
   await Firebase.initializeApp(
