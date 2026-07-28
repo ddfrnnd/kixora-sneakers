@@ -9,6 +9,7 @@ import 'package:fashion_ecommerce/features/admin/presentation/providers/admin_pr
 import 'package:fashion_ecommerce/features/admin/presentation/widgets/admin_analytics_widget.dart';
 import 'package:fashion_ecommerce/features/admin/presentation/widgets/order_status_badge.dart';
 import 'package:fashion_ecommerce/features/auth/presentation/providers/auth_provider.dart';
+import 'package:fashion_ecommerce/features/product/presentation/providers/product_provider.dart';
 import 'package:fashion_ecommerce/shared/widgets/loading_indicator.dart';
 import 'package:fashion_ecommerce/shared/widgets/error_widget.dart';
 import 'package:fashion_ecommerce/shared/widgets/empty_state_widget.dart';
@@ -23,6 +24,32 @@ class AdminDashboardScreen extends StatefulWidget {
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _currentIndex = 0;
+  String _selectedOrderStatus = 'Semua';
+  String _selectedProductCategory = 'Semua';
+
+  static const List<String> _orderStatuses = ['Semua', 'Baru', 'Diproses', 'Dikirim', 'Selesai', 'Dibatalkan'];
+  static const List<String> _productCategories = ['Semua', 'Nike', 'Adidas', 'Jordan', 'Puma', 'Converse', 'Vans', 'New Balance', 'Reebok', 'Sneakers', 'Running', 'Casual', 'Formal'];
+
+  void _showComingSoon(BuildContext context, String feature) {
+    showDialog(
+      context: context,
+      builder: (c) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(feature),
+        content: const Text('Fitur ini sedang dalam pengembangan dan akan segera tersedia.'),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(c),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+            ),
+            child: const Text('Mengerti', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -170,15 +197,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   String _getAppBarTitle(int index) {
     switch (index) {
       case 0:
-        return 'Dashboard Admin';
+        return 'Ringkasan Toko';
       case 1:
-        return 'Katalog Produk Sepatu';
+        return 'Katalog Produk';
       case 2:
-        return 'Laporan & Analitik Business';
+        return 'Laporan & Analitik';
       case 3:
         return 'Manajemen Pesanan';
       case 4:
-        return 'Profil & Pengaturan Admin';
+        return 'Profil Admin';
       default:
         return 'Admin Panel';
     }
@@ -208,12 +235,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Selamat Datang, Admin! 👋',
+                        'Selamat datang kembali, Admin.',
                         style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Toko Kixora Sneakers berjalan lancar. Ada $pendingOrders pesanan butuh respon.',
+                        pendingOrders > 0
+                            ? 'Ada $pendingOrders pesanan yang perlu segera diproses.'
+                            : 'Semua pesanan sudah tertangani. Toko berjalan lancar.',
                         style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
                       ),
                     ],
@@ -257,7 +286,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           const SizedBox(height: 24),
 
           // Quick Action Shortcuts
-          Text('Aksi Cepat Admin', style: AppTextStyles.h3.copyWith(fontSize: 16, fontWeight: FontWeight.bold)),
+          Text('Pintasan Cepat', style: AppTextStyles.h3.copyWith(fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -289,7 +318,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               Text('Pesanan Terbaru', style: AppTextStyles.h3.copyWith(fontSize: 16, fontWeight: FontWeight.bold)),
               TextButton(
                 onPressed: () => setState(() => _currentIndex = 3),
-                child: const Text('Lihat Semua ➔'),
+                child: const Text('Lihat Semua'),
               ),
             ],
           ),
@@ -298,7 +327,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           admin.orders.isEmpty
               ? const EmptyStateWidget(
                   title: 'Belum Ada Pesanan',
-                  subtitle: 'Pesanan baru akan muncul di sini',
+                  subtitle: 'Pesanan dari pelanggan akan muncul di sini setelah mereka checkout.',
                   icon: HugeIcons.strokeRoundedReceiptText,
                 )
               : Column(
@@ -357,93 +386,194 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           return const LoadingIndicator(message: 'Memuat produk sepatu...');
         }
 
-        final docs = snapshot.data?.docs ?? [];
+        final allDocs = snapshot.data?.docs ?? [];
+
+        // Apply category filter
+        final docs = _selectedProductCategory == 'Semua'
+            ? allDocs
+            : allDocs.where((doc) {
+                final data = doc.data() as Map<String, dynamic>;
+                final cat = (data['category'] ?? '').toString().toLowerCase();
+                return cat.contains(_selectedProductCategory.toLowerCase()) ||
+                    _selectedProductCategory.toLowerCase().contains(cat);
+              }).toList();
 
         return Stack(
           children: [
-            docs.isEmpty
-                ? const EmptyStateWidget(
-                    title: 'Belum Ada Produk',
-                    subtitle: 'Tambahkan sepatu baru ke toko Anda',
-                    icon: HugeIcons.strokeRoundedRunningShoes,
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 90),
-                    itemCount: docs.length,
-                    separatorBuilder: (context, index) => const SizedBox(height: 12),
-                    itemBuilder: (context, index) {
-                      final data = docs[index].data() as Map<String, dynamic>;
-                      final docId = docs[index].id;
-                      final String name = data['name'] ?? 'Sepatu Authentic';
-                      final double price = (data['price'] as num?)?.toDouble() ?? 0.0;
-                      final String category = data['category'] ?? 'Sneakers';
-                      final String? imageUrl = data['image_url'];
-
-                      return Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: const Color(0xFFE2E8F0)),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 64,
-                              height: 64,
-                              padding: const EdgeInsets.all(4),
+            Column(
+              children: [
+                // Category filter chips
+                Container(
+                  color: AppColors.background,
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: _productCategories.map((cat) {
+                        final isSelected = _selectedProductCategory == cat;
+                        final count = cat == 'Semua'
+                            ? allDocs.length
+                            : allDocs.where((doc) {
+                                final data = doc.data() as Map<String, dynamic>;
+                                final dcat = (data['category'] ?? '').toString().toLowerCase();
+                                return dcat.contains(cat.toLowerCase()) || cat.toLowerCase().contains(dcat);
+                              }).length;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: GestureDetector(
+                            onTap: () => setState(() => _selectedProductCategory = cat),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFF7F3F2),
-                                borderRadius: BorderRadius.circular(16),
+                                color: isSelected ? AppColors.primary : Colors.white,
+                                borderRadius: BorderRadius.circular(100),
+                                border: Border.all(
+                                  color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0),
+                                ),
+                                boxShadow: isSelected
+                                    ? [BoxShadow(color: AppColors.primary.withValues(alpha: 0.25), blurRadius: 8, offset: const Offset(0, 2))]
+                                    : [],
                               ),
-                              child: imageUrl != null && imageUrl.isNotEmpty
-                                  ? ColorFiltered(
-                                      colorFilter: const ColorFilter.mode(Color(0xFFF7F3F2), BlendMode.multiply),
-                                      child: Image.network(
-                                        imageUrl,
-                                        fit: BoxFit.contain,
-                                        errorBuilder: (c, e, s) => const HugeIcon(icon: HugeIcons.strokeRoundedRunningShoes, color: AppColors.primary),
-                                      ),
-                                    )
-                                  : const HugeIcon(icon: HugeIcons.strokeRoundedRunningShoes, color: AppColors.primary),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Text(name, style: AppTextStyles.labelLarge.copyWith(fontWeight: FontWeight.bold, fontSize: 15), maxLines: 1, overflow: TextOverflow.ellipsis),
-                                  const SizedBox(height: 4),
-                                  Text(category, style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary)),
-                                  const SizedBox(height: 4),
-                                  Text('Rp ${_formatPrice(price)}', style: AppTextStyles.priceSmall.copyWith(fontWeight: FontWeight.bold)),
+                                  Text(
+                                    cat,
+                                    style: TextStyle(
+                                      color: isSelected ? Colors.white : AppColors.textSecondary,
+                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  if (count > 0) ...[const SizedBox(width: 6), Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: isSelected ? Colors.white.withValues(alpha: 0.25) : AppColors.primary.withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(100),
+                                    ),
+                                    child: Text('$count', style: TextStyle(color: isSelected ? Colors.white : AppColors.primary, fontWeight: FontWeight.bold, fontSize: 11)),
+                                  )],
                                 ],
                               ),
                             ),
-                            IconButton(
-                              icon: const HugeIcon(icon: HugeIcons.strokeRoundedDelete02, color: AppColors.error, size: 20),
-                              onPressed: () async {
-                                final confirm = await showDialog<bool>(
-                                  context: context,
-                                  builder: (c) => AlertDialog(
-                                    title: const Text('Hapus Produk'),
-                                    content: Text('Yakin ingin menghapus sepatu "$name"?'),
-                                    actions: [
-                                      TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Batal')),
-                                      ElevatedButton(onPressed: () => Navigator.pop(c, true), style: ElevatedButton.styleFrom(backgroundColor: AppColors.error), child: const Text('Hapus')),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+
+                // Product list
+                Expanded(
+                  child: docs.isEmpty
+                      ? EmptyStateWidget(
+                          title: _selectedProductCategory == 'Semua' ? 'Katalog Masih Kosong' : 'Tidak Ada Produk "$_selectedProductCategory"',
+                          subtitle: _selectedProductCategory == 'Semua'
+                              ? 'Mulai tambahkan produk sepatu agar pelanggan dapat berbelanja.'
+                              : 'Belum ada produk dengan brand atau kategori ini.',
+                          icon: HugeIcons.strokeRoundedRunningShoes,
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(20, 8, 20, 90),
+                          itemCount: docs.length,
+                          separatorBuilder: (context, index) => const SizedBox(height: 12),
+                          itemBuilder: (context, index) {
+                            final data = docs[index].data() as Map<String, dynamic>;
+                            final docId = docs[index].id;
+                            final String name = data['name'] ?? 'Sepatu Authentic';
+                            final double price = (data['price'] as num?)?.toDouble() ?? 0.0;
+                            final String category = data['category'] ?? 'Sneakers';
+                            final String? imageUrl = data['image_url'];
+
+                            return Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: const Color(0xFFE2E8F0)),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 64,
+                                    height: 64,
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF7F3F2),
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    child: imageUrl != null && imageUrl.isNotEmpty
+                                        ? ColorFiltered(
+                                            colorFilter: const ColorFilter.mode(Color(0xFFF7F3F2), BlendMode.multiply),
+                                            child: Image.network(
+                                              imageUrl,
+                                              fit: BoxFit.contain,
+                                              errorBuilder: (c, e, s) => const HugeIcon(icon: HugeIcons.strokeRoundedRunningShoes, color: AppColors.primary),
+                                            ),
+                                          )
+                                        : const HugeIcon(icon: HugeIcons.strokeRoundedRunningShoes, color: AppColors.primary),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(name, style: AppTextStyles.labelLarge.copyWith(fontWeight: FontWeight.bold, fontSize: 15), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                        const SizedBox(height: 4),
+                                        Text(category, style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary)),
+                                        const SizedBox(height: 4),
+                                        Text('Rp ${_formatPrice(price)}', style: AppTextStyles.priceSmall.copyWith(fontWeight: FontWeight.bold)),
+                                      ],
+                                    ),
+                                  ),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: const HugeIcon(icon: HugeIcons.strokeRoundedEdit02, color: AppColors.primary, size: 20),
+                                        onPressed: () {
+                                          context.push('/admin/add-product', extra: {'productId': docId, 'initialData': data});
+                                        },
+                                        tooltip: 'Edit Produk',
+                                      ),
+                                      IconButton(
+                                        icon: const HugeIcon(icon: HugeIcons.strokeRoundedDelete02, color: AppColors.error, size: 20),
+                                        onPressed: () async {
+                                          final confirm = await showDialog<bool>(
+                                            context: context,
+                                            builder: (c) => AlertDialog(
+                                              title: const Text('Hapus Produk'),
+                                              content: Text('Apakah Anda yakin ingin menghapus produk "$name"?'),
+                                              actions: [
+                                                TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Batal')),
+                                                ElevatedButton(
+                                                  onPressed: () => Navigator.pop(c, true),
+                                                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+                                                  child: const Text('Hapus'),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                          if (confirm == true) {
+                                            await FirebaseFirestore.instance.collection('products').doc(docId).delete();
+                                            if (context.mounted) {
+                                              await context.read<ProductProvider>().fetchProducts();
+                                            }
+                                          }
+                                        },
+                                        tooltip: 'Hapus Produk',
+                                      ),
                                     ],
                                   ),
-                                );
-                                if (confirm == true) {
-                                  await FirebaseFirestore.instance.collection('products').doc(docId).delete();
-                                }
-                              },
-                            ),
-                          ],
+                                ],
+                              ),
+                            );
+                          },
                         ),
-                      );
-                    },
-                  ),
+                ),
+              ],
+            ),
 
             // Floating Add Product Button
             Positioned(
@@ -452,7 +582,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               child: FloatingActionButton.extended(
                 onPressed: () => context.push('/admin/add-product'),
                 icon: const HugeIcon(icon: HugeIcons.strokeRoundedAdd01, color: Colors.white),
-                label: const Text('Tambah Sepatu Baru', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                label: const Text('Tambah Produk', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                 backgroundColor: AppColors.primary,
               ),
             ),
@@ -487,26 +617,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     children: [
                       Text('Laporan Rekap Penjualan', style: AppTextStyles.h3.copyWith(fontSize: 16, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
-                      Text('Cetak dokumen PDF pertanggungjawaban resmi', style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary)),
+                      Text(
+                        '${admin.orders.length} transaksi · Total Rp ${_formatPrice(totalRevenue)}',
+                        style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
+                      ),
                     ],
                   ),
                 ),
                 ElevatedButton.icon(
                   onPressed: () async {
-                    await ReceiptHelper.saveReceiptToDevice(
+                    await ReceiptHelper.generateSalesReport(
                       context: context,
-                      orderId: '#REKAP-KIXORA',
-                      recipientName: 'Pemilik Toko Kixora',
-                      recipientPhone: '08123456789',
-                      address: 'Laporan Rekapitulasi Penjualan Resmi',
-                      totalPrice: totalRevenue,
-                      items: admin.orders.expand((o) => o.items).map((it) {
-                        return {
-                          'name': it.productName,
-                          'quantity': it.quantity,
-                          'price': it.price,
-                        };
-                      }).toList(),
+                      orders: admin.orders,
                     );
                   },
                   style: ElevatedButton.styleFrom(
@@ -531,87 +653,170 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   // --- TAB 3: ORDER ---
   Widget _buildOrderTab(AdminProvider admin) {
-    if (admin.orders.isEmpty) {
-      return const EmptyStateWidget(
-        title: 'Belum Ada Pesanan',
-        subtitle: 'Pesanan pelanggan akan muncul di sini',
-        icon: HugeIcons.strokeRoundedReceiptText,
-      );
-    }
+    // Filter orders by selected status
+    final filteredOrders = _selectedOrderStatus == 'Semua'
+        ? admin.orders
+        : admin.orders.where((o) => o.status == _selectedOrderStatus).toList();
 
-    return RefreshIndicator(
-      onRefresh: () => admin.fetchOrders(),
-      color: AppColors.primary,
-      child: ListView.separated(
-        padding: const EdgeInsets.all(20),
-        itemCount: admin.orders.length,
-        separatorBuilder: (context, index) => const SizedBox(height: 12),
-        itemBuilder: (context, index) {
-          final order = admin.orders[index];
-          return InkWell(
-            onTap: () => context.push('/admin/orders/${order.id}'),
-            borderRadius: BorderRadius.circular(20),
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.shadow,
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
+    return Column(
+      children: [
+        // Status Filter Tabs
+        Container(
+          color: AppColors.background,
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: _orderStatuses.map((status) {
+                final isSelected = _selectedOrderStatus == status;
+                final count = status == 'Semua'
+                    ? admin.orders.length
+                    : admin.orders.where((o) => o.status == status).length;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: GestureDetector(
+                    onTap: () => setState(() => _selectedOrderStatus = status),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected ? AppColors.primary : Colors.white,
+                        borderRadius: BorderRadius.circular(100),
+                        border: Border.all(
+                          color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0),
+                        ),
+                        boxShadow: isSelected
+                            ? [BoxShadow(color: AppColors.primary.withValues(alpha: 0.25), blurRadius: 8, offset: const Offset(0, 2))]
+                            : [],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            status,
+                            style: TextStyle(
+                              color: isSelected ? Colors.white : AppColors.textSecondary,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                              fontSize: 13,
+                            ),
+                          ),
+                          if (count > 0) ...
+                          [
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: isSelected ? Colors.white.withValues(alpha: 0.25) : AppColors.primary.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(100),
+                              ),
+                              child: Text(
+                                '$count',
+                                style: TextStyle(
+                                  color: isSelected ? Colors.white : AppColors.primary,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
                   ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '#${order.id}',
-                          style: AppTextStyles.labelMedium.copyWith(
-                            fontFamily: 'monospace',
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primary,
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+
+        // Order List
+        Expanded(
+          child: filteredOrders.isEmpty
+              ? EmptyStateWidget(
+                  title: _selectedOrderStatus == 'Semua'
+                      ? 'Belum Ada Pesanan'
+                      : 'Tidak Ada Pesanan "$_selectedOrderStatus"',
+                  subtitle: _selectedOrderStatus == 'Semua'
+                      ? 'Pesanan dari pelanggan akan tampil di sini setelah mereka menyelesaikan checkout.'
+                      : 'Semua pesanan dengan status ini sudah tertangani.',
+                  icon: HugeIcons.strokeRoundedReceiptText,
+                )
+              : RefreshIndicator(
+                  onRefresh: () => admin.fetchOrders(),
+                  color: AppColors.primary,
+                  child: ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                    itemCount: filteredOrders.length,
+                    separatorBuilder: (context, index) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final order = filteredOrders[index];
+                      return InkWell(
+                        onTap: () => context.push('/admin/orders/${order.id}'),
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.shadow,
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      '#${order.id}',
+                                      style: AppTextStyles.labelMedium.copyWith(
+                                        fontFamily: 'monospace',
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  ),
+                                  OrderStatusBadge(status: order.status),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                order.customerName,
+                                style: AppTextStyles.labelLarge.copyWith(fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  const HugeIcon(icon: HugeIcons.strokeRoundedCall, size: 14, color: AppColors.textHint),
+                                  const SizedBox(width: 4),
+                                  Text(order.customerPhone, style: AppTextStyles.bodySmall),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                              const SizedBox(height: 12),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(_formatDate(order.createdAt), style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary)),
+                                  Text('Rp ${_formatPrice(order.totalPrice)}', style: AppTextStyles.priceSmall.copyWith(fontWeight: FontWeight.bold, fontSize: 15)),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                      OrderStatusBadge(status: order.status),
-                    ],
+                      );
+                    },
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    order.customerName,
-                    style: AppTextStyles.labelLarge.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const HugeIcon(icon: HugeIcons.strokeRoundedCall, size: 14, color: AppColors.textHint),
-                      const SizedBox(width: 4),
-                      Text(order.customerPhone, style: AppTextStyles.bodySmall),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(_formatDate(order.createdAt), style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary)),
-                      Text('Rp ${_formatPrice(order.totalPrice)}', style: AppTextStyles.priceSmall.copyWith(fontWeight: FontWeight.bold, fontSize: 15)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
+                ),
+        ),
+      ],
     );
   }
 
@@ -647,7 +852,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     color: AppColors.primary.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(100),
                   ),
-                  child: const Text('Super Administrator', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 12)),
+                  child: const Text('Administrator', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 12)),
                 ),
               ],
             ),
@@ -655,10 +860,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           const SizedBox(height: 20),
 
           // Setting Options List
-          _buildProfileTile(title: 'Pengaturan Toko Kixora', icon: HugeIcons.strokeRoundedStore01, onTap: () {}),
-          _buildProfileTile(title: 'Kelola Hak Akses Staff', icon: HugeIcons.strokeRoundedUserGroup, onTap: () {}),
-          _buildProfileTile(title: 'Keamanan & Ganti Password', icon: HugeIcons.strokeRoundedLock, onTap: () {}),
-          _buildProfileTile(title: 'Kebijakan Privasi & Ketentuan', icon: HugeIcons.strokeRoundedDocumentCode, onTap: () {}),
+          _buildProfileTile(title: 'Pengaturan Toko', icon: HugeIcons.strokeRoundedStore01, onTap: () => _showComingSoon(context, 'Pengaturan Toko')),
+          _buildProfileTile(title: 'Manajemen Akses Staff', icon: HugeIcons.strokeRoundedUserGroup, onTap: () => _showComingSoon(context, 'Manajemen Akses Staff')),
+          _buildProfileTile(title: 'Keamanan Akun', icon: HugeIcons.strokeRoundedLock, onTap: () => _showComingSoon(context, 'Keamanan Akun')),
+          _buildProfileTile(title: 'Kebijakan & Ketentuan', icon: HugeIcons.strokeRoundedDocumentCode, onTap: () => _showComingSoon(context, 'Kebijakan & Ketentuan')),
           const SizedBox(height: 16),
 
           // Logout Button
@@ -673,7 +878,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
             ),
             icon: const HugeIcon(icon: HugeIcons.strokeRoundedLogout01, color: Colors.white, size: 20),
-            label: const Text('Keluar Akun Admin', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+            label: const Text('Keluar dari Panel Admin', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
           ),
         ],
       ),

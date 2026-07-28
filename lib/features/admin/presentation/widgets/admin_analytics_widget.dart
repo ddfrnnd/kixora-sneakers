@@ -275,7 +275,7 @@ class _AdminAnalyticsWidgetState extends State<AdminAnalyticsWidget> {
           ),
           const SizedBox(height: 24),
 
-          // 4. Bar Chart: Category Sales Breakdown (fl_chart - Solid Bars)
+          // 4. Bar Chart: Brand Sales Breakdown (fl_chart - Solid Bars)
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -294,12 +294,12 @@ class _AdminAnalyticsWidgetState extends State<AdminAnalyticsWidget> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Penjualan per Kategori Sepatu',
+                  'Penjualan per Brand',
                   style: AppTextStyles.h3.copyWith(fontSize: 17, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Jumlah pasang terjual berdasarkan jenis produk',
+                  'Jumlah pasang terjual per brand berdasarkan data pesanan',
                   style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 24),
@@ -308,7 +308,7 @@ class _AdminAnalyticsWidgetState extends State<AdminAnalyticsWidget> {
                 SizedBox(
                   height: 200,
                   child: BarChart(
-                    _buildBarChartData(),
+                    _buildBrandBarChartData(),
                   ),
                 ),
               ],
@@ -618,33 +618,50 @@ class _AdminAnalyticsWidgetState extends State<AdminAnalyticsWidget> {
     );
   }
 
-  BarChartData _buildBarChartData() {
+  BarChartData _buildBrandBarChartData() {
+    // Compute brand sales from real order items
+    final Map<String, int> brandSales = {};
+    for (final order in widget.orders) {
+      for (final item in order.items) {
+        final name = item.productName.toLowerCase();
+        String brand = 'Lainnya';
+        if (name.contains('nike') || name.contains('air max') || name.contains('air force')) { brand = 'Nike'; }
+        else if (name.contains('adidas') || name.contains('ultraboost') || name.contains('superstar')) { brand = 'Adidas'; }
+        else if (name.contains('jordan') || name.contains('aj') || name.contains('dunk')) { brand = 'Jordan'; }
+        else if (name.contains('puma')) { brand = 'Puma'; }
+        else if (name.contains('converse') || name.contains('chuck')) { brand = 'Converse'; }
+        else if (name.contains('vans') || name.contains('old skool')) { brand = 'Vans'; }
+        else if (name.contains('new balance') || name.contains('nb ')) { brand = 'New Balance'; }
+        else if (name.contains('reebok')) { brand = 'Reebok'; }
+        brandSales[brand] = (brandSales[brand] ?? 0) + item.quantity;
+      }
+    }
+
+    // Sort by quantity and take top 5
+    final sorted = brandSales.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final top5 = sorted.take(5).toList();
+
+    // Fallback when no order data
+    if (top5.isEmpty) {
+      return _buildFallbackBarChart();
+    }
+
+    final colors = [
+      const Color(0xFF3B82F6),
+      const Color(0xFF8B5CF6),
+      const Color(0xFFEC4899),
+      const Color(0xFF10B981),
+      const Color(0xFFF59E0B),
+    ];
+
     return BarChartData(
       barTouchData: BarTouchData(
         touchTooltipData: BarTouchTooltipData(
           getTooltipItem: (group, groupIndex, rod, rodIndex) {
-            String category;
-            switch (group.x.toInt()) {
-              case 0:
-                category = 'Running';
-                break;
-              case 1:
-                category = 'Casual';
-                break;
-              case 2:
-                category = 'Basketball';
-                break;
-              case 3:
-                category = 'Boots';
-                break;
-              case 4:
-                category = 'Sandals';
-                break;
-              default:
-                category = '';
-            }
+            final entry = top5[group.x.toInt()];
             return BarTooltipItem(
-              '$category\n${rod.toY.toInt()} Pasang',
+              '${entry.key}\n${rod.toY.toInt()} Pasang',
               const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
             );
           },
@@ -654,104 +671,84 @@ class _AdminAnalyticsWidgetState extends State<AdminAnalyticsWidget> {
         show: true,
         rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         bottomTitles: AxisTitles(
           sideTitles: SideTitles(
             showTitles: true,
+            reservedSize: 28,
             getTitlesWidget: (double value, TitleMeta meta) {
-              const style = TextStyle(
-                color: Color(0xFF64748B),
-                fontWeight: FontWeight.bold,
-                fontSize: 11,
-              );
-              Widget text;
-              switch (value.toInt()) {
-                case 0:
-                  text = const Text('Running', style: style);
-                  break;
-                case 1:
-                  text = const Text('Casual', style: style);
-                  break;
-                case 2:
-                  text = const Text('Basket', style: style);
-                  break;
-                case 3:
-                  text = const Text('Boots', style: style);
-                  break;
-                case 4:
-                  text = const Text('Sandal', style: style);
-                  break;
-                default:
-                  text = const Text('', style: style);
-                  break;
-              }
+              final idx = value.toInt();
+              if (idx < 0 || idx >= top5.length) return const SizedBox.shrink();
               return SideTitleWidget(
                 meta: meta,
-                child: text,
+                child: Text(
+                  top5[idx].key,
+                  style: const TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.bold, fontSize: 10),
+                ),
               );
             },
-            reservedSize: 28,
           ),
         ),
-        leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
       ),
       borderData: FlBorderData(show: false),
-      barGroups: [
-        BarChartGroupData(
-          x: 0,
+      barGroups: List.generate(top5.length, (i) {
+        return BarChartGroupData(
+          x: i,
           barRods: [
             BarChartRodData(
-              toY: 42,
-              color: const Color(0xFF3B82F6), // Solid Blue
+              toY: top5[i].value.toDouble(),
+              color: colors[i % colors.length],
               width: 18,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
             ),
           ],
+        );
+      }),
+      gridData: const FlGridData(show: false),
+    );
+  }
+
+  BarChartData _buildFallbackBarChart() {
+    final brands = ['Nike', 'Adidas', 'Jordan', 'Puma', 'Vans'];
+    final values = [42.0, 35.0, 28.0, 18.0, 12.0];
+    final colors = [
+      const Color(0xFF3B82F6),
+      const Color(0xFF8B5CF6),
+      const Color(0xFFEC4899),
+      const Color(0xFF10B981),
+      const Color(0xFFF59E0B),
+    ];
+    return BarChartData(
+      barTouchData: BarTouchData(
+        touchTooltipData: BarTouchTooltipData(
+          getTooltipItem: (group, groupIndex, rod, rodIndex) =>
+              BarTooltipItem('${brands[group.x.toInt()]}\n${rod.toY.toInt()} Pasang',
+                  const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
         ),
-        BarChartGroupData(
-          x: 1,
-          barRods: [
-            BarChartRodData(
-              toY: 35,
-              color: const Color(0xFF8B5CF6), // Solid Purple
-              width: 18,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
-            ),
-          ],
+      ),
+      titlesData: FlTitlesData(
+        show: true,
+        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        bottomTitles: AxisTitles(
+          sideTitles: SideTitles(
+            showTitles: true,
+            reservedSize: 28,
+            getTitlesWidget: (double value, TitleMeta meta) {
+              final idx = value.toInt();
+              return SideTitleWidget(
+                meta: meta,
+                child: Text(brands[idx], style: const TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.bold, fontSize: 11)),
+              );
+            },
+          ),
         ),
-        BarChartGroupData(
-          x: 2,
-          barRods: [
-            BarChartRodData(
-              toY: 28,
-              color: const Color(0xFFEC4899), // Solid Pink
-              width: 18,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
-            ),
-          ],
-        ),
-        BarChartGroupData(
-          x: 3,
-          barRods: [
-            BarChartRodData(
-              toY: 18,
-              color: const Color(0xFF10B981), // Solid Emerald
-              width: 18,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
-            ),
-          ],
-        ),
-        BarChartGroupData(
-          x: 4,
-          barRods: [
-            BarChartRodData(
-              toY: 12,
-              color: const Color(0xFFF59E0B), // Solid Amber
-              width: 18,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
-            ),
-          ],
-        ),
-      ],
+      ),
+      borderData: FlBorderData(show: false),
+      barGroups: List.generate(brands.length, (i) =>
+        BarChartGroupData(x: i, barRods: [BarChartRodData(toY: values[i], color: colors[i], width: 18, borderRadius: const BorderRadius.vertical(top: Radius.circular(6)))])
+      ),
       gridData: const FlGridData(show: false),
     );
   }

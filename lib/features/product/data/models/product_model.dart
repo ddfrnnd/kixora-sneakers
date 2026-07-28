@@ -8,6 +8,8 @@ class ProductModel extends Product {
     required super.price,
     required super.category,
     super.imageUrl,
+    super.rating,
+    super.soldCount,
     super.createdAt,
     super.updatedAt,
   });
@@ -16,19 +18,27 @@ class ProductModel extends Product {
     return rawName.replaceAll(RegExp(r'\s*\[Kicks?\.dev\]', caseSensitive: false), '').trim();
   }
 
+
+
   factory ProductModel.fromJson(Map<String, dynamic> json) {
     double parsedPrice = (json['price'] ?? 0).toDouble();
     if (parsedPrice > 0 && parsedPrice < 1000) {
       parsedPrice = parsedPrice * 16200;
     }
 
+    final prodId = json['id']?.toString() ?? '';
+    final parsedRating = (json['rating'] as num?)?.toDouble() ?? 0.0;
+    final parsedSold = (json['sold_count'] as num?)?.toInt() ?? 0;
+
     return ProductModel(
-      id: json['id']?.toString() ?? '',
+      id: prodId,
       name: _cleanName(json['name'] ?? ''),
       description: json['description'] ?? '',
       price: parsedPrice,
       category: json['category'] ?? '',
       imageUrl: json['image_url'] ?? json['imageUrl'],
+      rating: parsedRating,
+      soldCount: parsedSold,
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'])
           : null,
@@ -46,6 +56,8 @@ class ProductModel extends Product {
       'price': price,
       'category': category,
       'image_url': imageUrl,
+      'rating': rating,
+      'sold_count': soldCount,
       'created_at': createdAt?.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
     };
@@ -57,13 +69,19 @@ class ProductModel extends Product {
       parsedPrice = parsedPrice * 16200;
     }
 
+    final prodId = map['id']?.toString() ?? '';
+    final parsedRating = (map['rating'] as num?)?.toDouble() ?? 0.0;
+    final parsedSold = (map['sold_count'] as num?)?.toInt() ?? 0;
+
     return ProductModel(
-      id: map['id']?.toString() ?? '',
+      id: prodId,
       name: _cleanName(map['name'] ?? ''),
       description: map['description'] ?? '',
       price: parsedPrice,
       category: map['category'] ?? '',
-      imageUrl: map['image_url'],
+      imageUrl: map['image_url'] ?? map['imageUrl'],
+      rating: parsedRating,
+      soldCount: parsedSold,
       createdAt: map['created_at'] != null
           ? DateTime.tryParse(map['created_at'])
           : null,
@@ -81,6 +99,8 @@ class ProductModel extends Product {
       'price': price,
       'category': category,
       'image_url': imageUrl,
+      'rating': rating,
+      'sold_count': soldCount,
       'created_at': createdAt?.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
     };

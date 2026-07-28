@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fashion_ecommerce/core/storage/secure_storage.dart';
 import 'package:fashion_ecommerce/features/auth/data/datasources/auth_remote_datasource.dart';
 import 'package:fashion_ecommerce/features/auth/data/repositories/auth_repository_impl.dart';
@@ -41,11 +42,30 @@ class AuthProvider extends ChangeNotifier {
       final savedEmail = await secureStorage.getAdminEmail();
       final isSavedAdmin = (savedEmail ?? '').contains('admin');
 
+      final prefs = await SharedPreferences.getInstance();
+      String? localPhotoUrl = prefs.getString('user_photo_${firebaseUser.uid}');
+
+      // Jika SharedPreferences belum ada, cek dari Firestore
+      if (localPhotoUrl == null || localPhotoUrl.isEmpty) {
+        try {
+          final doc = await FirebaseFirestore.instance.collection('users').doc(firebaseUser.uid).get();
+          if (doc.exists && doc.data() != null) {
+            localPhotoUrl = doc.data()!['photoUrl'] as String?;
+            if (localPhotoUrl != null && localPhotoUrl.isNotEmpty) {
+              await prefs.setString('user_photo_${firebaseUser.uid}', localPhotoUrl);
+            }
+          }
+        } catch (_) {}
+      }
+
       _user = User(
         id: firebaseUser.uid,
         email: firebaseUser.email ?? '',
         name: firebaseUser.displayName ?? 'Pengguna',
         role: isSavedAdmin ? 'admin' : 'customer',
+        photoUrl: (localPhotoUrl != null && localPhotoUrl.isNotEmpty)
+            ? localPhotoUrl
+            : firebaseUser.photoURL,
       );
       _isLoggedIn = true;
       notifyListeners();
@@ -68,6 +88,7 @@ class AuthProvider extends ChangeNotifier {
     try {
       _user = await _repository.login(email, password);
       _isLoggedIn = true;
+      await _checkCurrentUser();
       return true;
     } catch (e) {
       _error = e.toString().replaceAll('AuthException: ', '');
@@ -87,6 +108,7 @@ class AuthProvider extends ChangeNotifier {
     try {
       _user = await _repository.register(name, email, password);
       _isLoggedIn = true;
+      await _checkCurrentUser();
       return true;
     } catch (e) {
       _error = e.toString().replaceAll('AuthException: ', '');
@@ -119,6 +141,58 @@ class AuthProvider extends ChangeNotifier {
             name: newName,
             role: _user!.role,
             token: _user!.token,
+            photoUrl: _user!.photoUrl,
+          );
+        }
+        notifyListeners();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      _error = e.toString();
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Update Profile Photo URL (Mendukung URL & File Lokal HP)
+  Future<bool> updateProfilePhoto(String photoUrl) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final fbUser = _remoteDatasource.currentUser;
+      if (fbUser != null) {
+        // Simpan ke SharedPreferences lokal perangkat
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('user_photo_${fbUser.uid}', photoUrl);
+
+        // Jika berbentuk HTTP/HTTPS, update ke Firebase Auth photoURL
+        if (photoUrl.startsWith('http://') || photoUrl.startsWith('https://')) {
+          try {
+            await fbUser.updatePhotoURL(photoUrl);
+          } catch (_) {}
+        }
+
+        // Simpan dokumen Firestore user
+        try {
+          await FirebaseFirestore.instance.collection('users').doc(fbUser.uid).set({
+            'photoUrl': photoUrl,
+          }, SetOptions(merge: true));
+        } catch (_) {}
+
+        // Update objek _user di memori
+        if (_user != null) {
+          _user = User(
+            id: _user!.id,
+            email: _user!.email,
+            name: _user!.name,
+            role: _user!.role,
+            token: _user!.token,
+            photoUrl: photoUrl,
           );
         }
         notifyListeners();

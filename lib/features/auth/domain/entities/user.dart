@@ -4,6 +4,7 @@ class User {
   final String name;
   final String role; // 'admin' atau 'customer'
   final String? token;
+  final String? photoUrl;
 
   const User({
     required this.id,
@@ -11,6 +12,7 @@ class User {
     required this.name,
     this.role = 'customer',
     this.token,
+    this.photoUrl,
   });
 
   bool get isAdmin => role == 'admin';

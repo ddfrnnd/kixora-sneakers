@@ -34,48 +34,90 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   }
 
   void _showLeaveReviewSheet(BuildContext context, Map<String, dynamic> orderData) {
-    final items = (orderData['items'] as List?) ?? [];
-    final firstItem = items.isNotEmpty ? items.first : {};
-    final String productName = firstItem['product_name'] ?? 'Sepatu Authentic';
-    final String? imgUrl = firstItem['image_url'] ?? firstItem['imageUrl'];
-    final String customerName = orderData['customer_name'] ?? 'Pelanggan Kixora';
+    final customerName = orderData['customer_name'] ?? 'Pelanggan Kixora';
+    final List items = (orderData['items'] as List?) ?? [];
+    int selectedProductIndex = 0;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(36)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
       ),
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
+            final Map currentProduct = items.isNotEmpty ? items[selectedProductIndex] : {};
+            final String productName = currentProduct['product_name'] ?? 'Sepatu Authentic';
+            final String? productId = currentProduct['product_id'] ?? currentProduct['id'];
+            final String? imgUrl = currentProduct['image_url'] ?? currentProduct['imageUrl'];
+
             return Padding(
               padding: EdgeInsets.only(
-                left: 20,
-                right: 20,
-                top: 16,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                top: 20,
+                left: 24,
+                right: 24,
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    width: 44,
+                    width: 40,
                     height: 5,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE9ECEF),
-                      borderRadius: BorderRadius.circular(10),
+                      color: const Color(0xFFE5E2E1),
+                      borderRadius: BorderRadius.circular(4),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    'Beri Penilaian & Ulasan',
-                    style: AppTextStyles.h2.copyWith(fontSize: 22, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 16),
 
-                  // Real Product Preview Card (Stitch UI)
+                  // If order has multiple products, allow selecting product to review
+                  if (items.length > 1) ...[
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Pilih Produk yang Diulas:',
+                        style: AppTextStyles.labelLarge.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF7F3F2),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<int>(
+                          value: selectedProductIndex,
+                          isExpanded: true,
+                          items: List.generate(items.length, (idx) {
+                            final item = items[idx];
+                            return DropdownMenuItem<int>(
+                              value: idx,
+                              child: Text(
+                                item['product_name'] ?? 'Sepatu ${idx + 1}',
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            );
+                          }),
+                          onChanged: (val) {
+                            if (val != null) {
+                              setModalState(() {
+                                selectedProductIndex = val;
+                              });
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // Real Product Preview Card
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
@@ -193,114 +235,91 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                       contentPadding: const EdgeInsets.all(16),
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
 
-                  // Action Buttons (Cancel / Submit)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.pop(context),
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size.fromHeight(52),
-                            side: const BorderSide(color: AppColors.primary, width: 2),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(100),
+                  // Action Button: Kirim Ulasan
+                  ElevatedButton(
+                    onPressed: _isSubmittingReview
+                        ? null
+                        : () async {
+                            setModalState(() => _isSubmittingReview = true);
+
+                            try {
+                              // Save Permanent Review for the selected product
+                              await FirebaseFirestore.instance.collection('reviews').add({
+                                'order_id': widget.orderId,
+                                'product_id': productId ?? '',
+                                'product_name': productName,
+                                'user_name': customerName,
+                                'rating': _userRating,
+                                'comment': _reviewController.text.trim().isEmpty
+                                    ? 'Sepatu sangat bagus, nyaman dipakai dan pengiriman cepat!'
+                                    : _reviewController.text.trim(),
+                                'created_at': DateTime.now().toIso8601String(),
+                                'time_ago': 'Baru saja',
+                              });
+
+                              if (mounted) {
+                                Navigator.pop(context);
+                                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Ulasan berhasil dikirim. Terima kasih!'),
+                                    backgroundColor: AppColors.success,
+                                    duration: Duration(seconds: 3),
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                Navigator.pop(context);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Gagal mengirim ulasan.'),
+                                    backgroundColor: AppColors.error,
+                                  ),
+                                );
+                              }
+                            } finally {
+                              setModalState(() => _isSubmittingReview = false);
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(50),
+                      backgroundColor: AppColors.primary,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(100),
+                      ),
+                    ),
+                    child: _isSubmittingReview
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              color: Colors.white,
                             ),
-                          ),
-                          child: const Text(
-                            'Batal',
+                          )
+                        : const Text(
+                            'Kirim Ulasan',
                             style: TextStyle(
-                              color: AppColors.primary,
+                              color: Colors.white,
                               fontWeight: FontWeight.bold,
-                              fontSize: 16,
+                              fontSize: 15,
                             ),
                           ),
-                        ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text(
+                      'Tutup',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: _isSubmittingReview
-                              ? null
-                              : () async {
-                                  setModalState(() => _isSubmittingReview = true);
-
-                                  try {
-                                    // 1. Update Firestore Order Status to 'Selesai'
-                                    await FirebaseFirestore.instance
-                                        .collection('orders')
-                                        .doc(widget.orderId)
-                                        .update({
-                                      'status': 'Selesai',
-                                      'updated_at': DateTime.now().toIso8601String(),
-                                    });
-
-                                    // 2. Add One-Time Permanent Review into 'reviews' collection
-                                    await FirebaseFirestore.instance.collection('reviews').add({
-                                      'order_id': widget.orderId,
-                                      'user_name': customerName,
-                                      'rating': _userRating,
-                                      'comment': _reviewController.text.trim().isEmpty
-                                          ? 'Sepatu sangat bagus, nyaman dipakai dan pengiriman cepat!'
-                                          : _reviewController.text.trim(),
-                                      'product_name': productName,
-                                      'created_at': DateTime.now().toIso8601String(),
-                                      'time_ago': 'Baru saja',
-                                    });
-
-                                    if (mounted) {
-                                      Navigator.pop(context);
-                                      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('🎉 Ulasan & Penilaian Berhasil Dikirim! Pesanan Selesai.'),
-                                          backgroundColor: AppColors.success,
-                                          duration: Duration(seconds: 3),
-                                        ),
-                                      );
-                                    }
-                                  } catch (e) {
-                                    if (mounted) {
-                                      Navigator.pop(context);
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('Pesanan berhasil diselesaikan!'),
-                                          backgroundColor: AppColors.success,
-                                        ),
-                                      );
-                                    }
-                                  } finally {
-                                    setModalState(() => _isSubmittingReview = false);
-                                  }
-                                },
-                          style: ElevatedButton.styleFrom(
-                            minimumSize: const Size.fromHeight(52),
-                            backgroundColor: AppColors.primary,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(100),
-                            ),
-                          ),
-                          child: _isSubmittingReview
-                              ? const SizedBox(
-                                  width: 22,
-                                  height: 22,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.5,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Text(
-                                  'Kirim Ulasan',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ],
               ),
@@ -355,9 +374,6 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
           final String status = (orderData['status'] ?? 'Baru').toString();
           final double totalPrice = (orderData['total_price'] as num?)?.toDouble() ?? 0.0;
           final List items = (orderData['items'] as List?) ?? [];
-          final Map firstItem = items.isNotEmpty ? items.first : {};
-          final String productName = firstItem['product_name'] ?? 'Sepatu Authentic';
-          final String? imgUrl = firstItem['image_url'] ?? firstItem['imageUrl'];
           final String recipientName = orderData['customer_name'] ?? 'Pelanggan Kixora';
           final String recipientPhone = orderData['customer_phone'] ?? '081234567890';
           final String address = orderData['address'] ?? 'Alamat Pemesanan';
@@ -374,9 +390,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 1. Order Summary Card with Real Image
+                // Single Unified Order & Products Card
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(24),
@@ -389,92 +405,152 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                       ),
                     ],
                   ),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Real Shoe Image Container
-                      Container(
-                        width: 76,
-                        height: 76,
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF7F3F2),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: (imgUrl != null && imgUrl.isNotEmpty)
-                            ? ColorFiltered(
-                                colorFilter: const ColorFilter.mode(
-                                  Color(0xFFF7F3F2),
-                                  BlendMode.multiply,
-                                ),
-                                child: Image.network(
-                                  imgUrl,
-                                  fit: BoxFit.contain,
-                                  errorBuilder: (_, __, ___) => const HugeIcon(
-                                    icon: HugeIcons.strokeRoundedRunningShoes,
-                                    color: AppColors.primary,
-                                    size: 36,
-                                  ),
-                                ),
-                              )
-                            : const HugeIcon(
-                                icon: HugeIcons.strokeRoundedRunningShoes,
-                                color: AppColors.primary,
-                                size: 36,
+                      // Header Row: Order ID & Status Badge
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Pesanan #${displayId}',
+                                style: AppTextStyles.h3.copyWith(fontSize: 16, fontWeight: FontWeight.bold),
                               ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${items.length} Barang Dipesan',
+                                style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
+                              ),
+                            ],
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: isCompleted
+                                  ? AppColors.success.withValues(alpha: 0.12)
+                                  : AppColors.primary.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              status.toUpperCase(),
+                              style: TextStyle(
+                                color: isCompleted ? AppColors.success : AppColors.primary,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 14),
+                      const SizedBox(height: 14),
+                      const Divider(height: 1),
+                      const SizedBox(height: 14),
 
-                      // Title & ID
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              productName,
-                              style: AppTextStyles.h3.copyWith(fontSize: 16, fontWeight: FontWeight.bold),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Order ID: #$displayId',
-                              style: AppTextStyles.caption.copyWith(
-                                color: AppColors.textSecondary,
-                                fontWeight: FontWeight.w600,
+                      // Products List
+                      ...items.map((it) {
+                        final itName = it['product_name'] ?? 'Sepatu Authentic';
+                        final itPrice = (it['price'] as num?)?.toDouble() ?? 0.0;
+                        final itQty = (it['quantity'] as num?)?.toInt() ?? 1;
+                        final itImg = it['image_url'] ?? it['imageUrl'];
+
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 56,
+                                height: 56,
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF7F3F2),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: (itImg != null && itImg.toString().isNotEmpty)
+                                    ? ColorFiltered(
+                                        colorFilter: const ColorFilter.mode(
+                                          Color(0xFFF7F3F2),
+                                          BlendMode.multiply,
+                                        ),
+                                        child: Image.network(
+                                          itImg.toString(),
+                                          fit: BoxFit.contain,
+                                          errorBuilder: (_, __, ___) => const HugeIcon(
+                                            icon: HugeIcons.strokeRoundedRunningShoes,
+                                            color: AppColors.primary,
+                                            size: 24,
+                                          ),
+                                        ),
+                                      )
+                                    : const HugeIcon(
+                                        icon: HugeIcons.strokeRoundedRunningShoes,
+                                        color: AppColors.primary,
+                                        size: 24,
+                                      ),
                               ),
-                            ),
-                            const SizedBox(height: 6),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'Rp ${_formatPrice(totalPrice)}',
-                                  style: AppTextStyles.price.copyWith(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: isCompleted
-                                        ? AppColors.success.withValues(alpha: 0.12)
-                                        : AppColors.primary.withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    status.toUpperCase(),
-                                    style: TextStyle(
-                                      color: isCompleted ? AppColors.success : AppColors.primary,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      itName,
+                                      style: AppTextStyles.labelLarge.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                  ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Jumlah: $itQty x Rp ${_formatPrice(itPrice)}',
+                                      style: AppTextStyles.caption.copyWith(
+                                        color: AppColors.textSecondary,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ],
+                              ),
+                              Text(
+                                'Rp ${_formatPrice(itPrice * itQty)}',
+                                style: AppTextStyles.price.copyWith(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+
+                      const Divider(height: 1),
+                      const SizedBox(height: 12),
+
+                      // Footer Row: Total Payment
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Total Pembayaran',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: AppColors.textSecondary,
+                              fontWeight: FontWeight.w600,
                             ),
-                          ],
-                        ),
+                          ),
+                          Text(
+                            'Rp ${_formatPrice(totalPrice)}',
+                            style: AppTextStyles.price.copyWith(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -527,7 +603,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                   child: Column(
                     children: [
                       Text(
-                        isCompleted ? 'Pesanan Ini Telah Selesai 🎉' : 'Paket Sudah Diterima?',
+                        isCompleted ? 'Pesanan Selesai' : 'Paket Sudah Diterima?',
                         style: AppTextStyles.h3.copyWith(fontSize: 17, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 6),
@@ -543,37 +619,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                       const SizedBox(height: 18),
 
                       if (isCompleted) ...[
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                          decoration: BoxDecoration(
-                            color: AppColors.success.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(100),
-                            border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
-                          ),
-                          child: const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              HugeIcon(
-                                icon: HugeIcons.strokeRoundedCheckmarkCircle01,
-                                color: AppColors.success,
-                                size: 20,
-                              ),
-                              SizedBox(width: 8),
-                              Text(
-                                'Penilaian & Ulasan Telah Dikirim',
-                                style: TextStyle(
-                                  color: AppColors.success,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ] else ...[
-                        // Primary Action: Complete & Review Button (One-time submission)
-                        ElevatedButton.icon(
+                        ElevatedButton(
                           onPressed: () => _showLeaveReviewSheet(context, orderData),
                           style: ElevatedButton.styleFrom(
                             minimumSize: const Size.fromHeight(52),
@@ -583,13 +629,43 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                               borderRadius: BorderRadius.circular(100),
                             ),
                           ),
-                          icon: const HugeIcon(
-                            icon: HugeIcons.strokeRoundedStar,
-                            color: Colors.white,
-                            size: 20,
+                          child: const Text(
+                            'Beri Ulasan Produk',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
                           ),
-                          label: const Text(
-                            'Selesaikan & Beri Penilaian',
+                        ),
+                      ] else ...[
+                        ElevatedButton(
+                          onPressed: () async {
+                            final messenger = ScaffoldMessenger.of(context);
+                            await FirebaseFirestore.instance
+                                .collection('orders')
+                                .doc(currentDocId)
+                                .update({
+                              'status': 'Selesai',
+                              'updated_at': DateTime.now().toIso8601String(),
+                            });
+                            messenger.showSnackBar(
+                              const SnackBar(
+                                content: Text('Pesanan berhasil diselesaikan!'),
+                                backgroundColor: AppColors.success,
+                              ),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(52),
+                            backgroundColor: AppColors.primary,
+                            elevation: 3,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(100),
+                            ),
+                          ),
+                          child: const Text(
+                            'Konfirmasi Pesanan Diterima',
                             style: TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
@@ -601,7 +677,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                       const SizedBox(height: 12),
 
                       // Secondary Action: Download PDF Receipt
-                      OutlinedButton.icon(
+                      OutlinedButton(
                         onPressed: () async {
                           await ReceiptHelper.saveReceiptToDevice(
                             context: context,
@@ -626,12 +702,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                             borderRadius: BorderRadius.circular(100),
                           ),
                         ),
-                        icon: const HugeIcon(
-                          icon: HugeIcons.strokeRoundedFile02,
-                          color: AppColors.primary,
-                          size: 20,
-                        ),
-                        label: const Text(
+                        child: const Text(
                           'Simpan Struk Resi (PDF)',
                           style: TextStyle(
                             color: AppColors.primary,

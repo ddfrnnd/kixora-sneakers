@@ -386,42 +386,67 @@ class _ProductListScreenState extends State<ProductListScreen> {
             ),
           ] else ...[
             Expanded(
-              child: Container(
+              child: SizedBox(
                 height: 48,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF7F3F2),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  children: [
-                    const HugeIcon(icon: HugeIcons.strokeRoundedSearch01, color: AppColors.textHint),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: _searchController,
-                        onChanged: (val) {
-                          setState(() {});
-                          context.read<ProductProvider>().setSearchQuery(val);
-                        },
-                        decoration: const InputDecoration(
-                          hintText: 'Search',
-                          border: InputBorder.none,
-                          isDense: true,
-                          contentPadding: EdgeInsets.zero,
-                        ),
+                child: TextField(
+                  controller: _searchController,
+                  textAlignVertical: TextAlignVertical.center,
+                  onChanged: (val) {
+                    setState(() {});
+                    context.read<ProductProvider>().setSearchQuery(val);
+                  },
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.textPrimary,
+                    fontSize: 14,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'Cari sepatu favoritmu...',
+                    hintStyle: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.textHint,
+                      fontSize: 14,
+                    ),
+                    prefixIcon: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 10),
+                      child: HugeIcon(
+                        icon: HugeIcons.strokeRoundedSearch01,
+                        color: AppColors.textHint,
+                        size: 20,
                       ),
                     ),
-                    if (_searchController.text.isNotEmpty)
-                      GestureDetector(
-                        onTap: () {
-                          _searchController.clear();
-                          setState(() {});
-                          context.read<ProductProvider>().setSearchQuery('');
-                        },
-                        child: const HugeIcon(icon: HugeIcons.strokeRoundedCancel01, color: AppColors.textHint, size: 20),
-                      ),
-                  ],
+                    prefixIconConstraints: const BoxConstraints(
+                      minWidth: 40,
+                      minHeight: 40,
+                    ),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const HugeIcon(
+                              icon: HugeIcons.strokeRoundedCancel01,
+                              color: AppColors.textHint,
+                              size: 18,
+                            ),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() {});
+                              context.read<ProductProvider>().setSearchQuery('');
+                            },
+                          )
+                        : null,
+                    fillColor: const Color(0xFFF7F3F2),
+                    filled: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                    ),
+                  ),
                 ),
               ),
             ),

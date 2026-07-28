@@ -5,6 +5,8 @@ class Product {
   final double price;
   final String category;
   final String? imageUrl;
+  final double rating;
+  final int soldCount;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -15,6 +17,8 @@ class Product {
     required this.price,
     required this.category,
     this.imageUrl,
+    this.rating = 0.0,
+    this.soldCount = 0,
     this.createdAt,
     this.updatedAt,
   });

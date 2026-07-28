@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:fashion_ecommerce/app/theme/app_colors.dart';
+import 'package:fashion_ecommerce/app/theme/app_text_styles.dart';
 
 class EmptyStateWidget extends StatelessWidget {
   final String title;
@@ -33,21 +34,14 @@ class EmptyStateWidget extends StatelessWidget {
             Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontFamily: 'Poppins',
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
+              style: AppTextStyles.h4,
             ),
             if (subtitle != null) ...[
               const SizedBox(height: 8),
               Text(
                 subtitle!,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontFamily: 'Poppins',
-                  fontSize: 14,
+                style: AppTextStyles.bodyMedium.copyWith(
                   color: AppColors.textSecondary,
                 ),
               ),

@@ -10,7 +10,12 @@ import 'package:fashion_ecommerce/shared/widgets/custom_button.dart';
 import 'package:fashion_ecommerce/shared/widgets/empty_state_widget.dart';
 
 class CartScreen extends StatelessWidget {
-  const CartScreen({super.key});
+  final bool showBackButton;
+
+  const CartScreen({
+    super.key,
+    this.showBackButton = true,
+  });
 
   String _formatPrice(double price) {
     return price.toStringAsFixed(0).replaceAllMapped(
@@ -116,14 +121,17 @@ class CartScreen extends StatelessWidget {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text('My Cart', style: AppTextStyles.h2.copyWith(fontSize: 22)),
-        leading: IconButton(
-          onPressed: () => context.pop(),
-          icon: HugeIcon(
-            icon: HugeIcons.strokeRoundedArrowLeft01,
-            color: AppColors.textPrimary,
-            size: 24,
-          ),
-        ),
+        automaticallyImplyLeading: false,
+        leading: showBackButton
+            ? IconButton(
+                onPressed: () => context.pop(),
+                icon: const HugeIcon(
+                  icon: HugeIcons.strokeRoundedArrowLeft01,
+                  color: AppColors.textPrimary,
+                  size: 24,
+                ),
+              )
+            : null,
         actions: [
           IconButton(
             onPressed: () => context.push('/products'),

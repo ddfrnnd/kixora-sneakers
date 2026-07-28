@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fashion_ecommerce/core/errors/exceptions.dart';
 import 'package:fashion_ecommerce/features/order/data/models/order_model.dart';
 
@@ -16,6 +17,13 @@ class OrderRemoteDatasource {
       data['status'] = 'Baru';
       data['created_at'] = FieldValue.serverTimestamp();
       data['total_price'] = order.totalPrice ?? 0;
+
+      // Automatically attach logged in user details for user-scoped filtering
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser != null) {
+        data['user_email'] = currentUser.email;
+        data['user_id'] = currentUser.uid;
+      }
 
       // Tambahkan info produk ke items
       final items = order.items.map((item) => {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fashion_ecommerce/app/theme/app_colors.dart';
@@ -165,44 +166,88 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           ),
                           const SizedBox(height: 12),
 
-                          // Rating & Sold Row (Stitch UI Badge)
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFE5E2E1),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  '6,378 sold',
-                                  style: AppTextStyles.caption.copyWith(
-                                    color: AppColors.textPrimary,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              HugeIcon(
-                                icon: HugeIcons.strokeRoundedStar,
-                                color: const Color(0xFFFFC107),
-                                size: 18,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '4.9 ',
-                                style: AppTextStyles.bodyMedium.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(
-                                '(6,573 reviews)',
-                                style: AppTextStyles.caption.copyWith(
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                            ],
+                          // Rating & Sold Row (Realtime Stream-driven)
+                          StreamBuilder<QuerySnapshot>(
+                            stream: FirebaseFirestore.instance.collection('orders').snapshots(),
+                            builder: (context, ordersSnapshot) {
+                              int realSoldCount = 0;
+                              if (ordersSnapshot.hasData && ordersSnapshot.data!.docs.isNotEmpty) {
+                                for (var doc in ordersSnapshot.data!.docs) {
+                                  final data = doc.data() as Map<String, dynamic>;
+                                  final items = (data['items'] as List?) ?? [];
+                                  for (var item in items) {
+                                    if (item is Map) {
+                                      final pId = (item['product_id'] ?? item['id'] ?? '').toString();
+                                      final pName = (item['product_name'] ?? item['name'] ?? '').toString();
+                                      if (pId == product.id || (pName.isNotEmpty && pName == product.name)) {
+                                        final qty = (item['quantity'] as num?)?.toInt() ?? (item['qty'] as num?)?.toInt() ?? 1;
+                                        realSoldCount += qty;
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+
+                              return StreamBuilder<QuerySnapshot>(
+                                stream: FirebaseFirestore.instance.collection('reviews').snapshots(),
+                                builder: (context, reviewsSnapshot) {
+                                  double headerRating = product.rating;
+
+                                  if (reviewsSnapshot.hasData && reviewsSnapshot.data!.docs.isNotEmpty) {
+                                    final prodDocs = reviewsSnapshot.data!.docs.where((doc) {
+                                      final data = doc.data() as Map<String, dynamic>;
+                                      final pId = (data['product_id'] ?? '').toString();
+                                      final pName = (data['product_name'] ?? '').toString();
+                                      return pId == product.id || (pName.isNotEmpty && pName == product.name);
+                                    }).toList();
+
+                                    if (prodDocs.isNotEmpty) {
+                                      final totalRating = prodDocs.fold<double>(
+                                        0.0,
+                                        (acc, d) {
+                                          final data = d.data() as Map<String, dynamic>;
+                                          return acc + ((data['rating'] as num?)?.toDouble() ?? 5.0);
+                                        },
+                                      );
+                                      headerRating = totalRating / prodDocs.length;
+                                    }
+                                  }
+
+                                  return Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFE5E2E1),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Text(
+                                          '$realSoldCount terjual',
+                                          style: AppTextStyles.caption.copyWith(
+                                            color: AppColors.textPrimary,
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      const HugeIcon(
+                                        icon: HugeIcons.strokeRoundedStar,
+                                        color: Color(0xFFFFC107),
+                                        size: 18,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '${headerRating.toStringAsFixed(1)} ',
+                                        style: AppTextStyles.bodyMedium.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              );
+                            },
                           ),
                           const SizedBox(height: 16),
                           const Divider(color: Color(0xFFE9ECEF)),
@@ -351,56 +396,120 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           const SizedBox(height: 16),
 
                           // Customer Reviews Section (Stitch UI)
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
+                          StreamBuilder<QuerySnapshot>(
+                            stream: FirebaseFirestore.instance
+                                .collection('reviews')
+                                .snapshots(),
+                            builder: (context, snapshot) {
+                              List<Map<String, dynamic>> productReviews = [];
+
+                              if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+                                for (var doc in snapshot.data!.docs) {
+                                  final data = doc.data() as Map<String, dynamic>;
+                                  final docId = (data['product_id'] ?? '').toString();
+                                  final docName = (data['product_name'] ?? '').toString();
+
+                                  if (docId == product.id || (docName.isNotEmpty && docName == product.name)) {
+                                    productReviews.add(data);
+                                  }
+                                }
+                              }
+
+                              double computedRating = 0.0;
+                              if (productReviews.isNotEmpty) {
+                                final totalRating = productReviews.fold<double>(
+                                  0.0,
+                                  (acc, r) => acc + ((r['rating'] as num?)?.toDouble() ?? 5.0),
+                                );
+                                computedRating = totalRating / productReviews.length;
+                              } else {
+                                computedRating = product.rating;
+                              }
+
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const HugeIcon(
-                                    icon: HugeIcons.strokeRoundedStar,
-                                    color: Color(0xFFFFC107),
-                                    size: 20,
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          const HugeIcon(
+                                            icon: HugeIcons.strokeRoundedStar,
+                                            color: Color(0xFFFFC107),
+                                            size: 20,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            '${computedRating.toStringAsFixed(1)} (${productReviews.length} Ulasan)',
+                                            style: AppTextStyles.h3.copyWith(fontSize: 17),
+                                          ),
+                                        ],
+                                      ),
+                                      GestureDetector(
+                                        onTap: () => context.push(
+                                          '/reviews',
+                                          extra: {
+                                            'productId': product.id,
+                                            'productName': product.name,
+                                          },
+                                        ),
+                                        child: Text(
+                                          'See All',
+                                          style: AppTextStyles.labelLarge.copyWith(
+                                            color: AppColors.primary,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    '4.8 (5,775 reviews)',
-                                    style: AppTextStyles.h3.copyWith(fontSize: 17),
-                                  ),
+                                  const SizedBox(height: 14),
+                                  if (productReviews.isEmpty) ...[
+                                    Container(
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF7F3F2),
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const HugeIcon(
+                                            icon: HugeIcons.strokeRoundedChat01,
+                                            color: AppColors.textSecondary,
+                                            size: 24,
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Text(
+                                              'Belum ada ulasan untuk produk ini.',
+                                              style: AppTextStyles.bodyMedium.copyWith(
+                                                color: AppColors.textSecondary,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ] else ...[
+                                    ...productReviews.take(3).map((rev) {
+                                      return Padding(
+                                        padding: const EdgeInsets.only(bottom: 12),
+                                        child: _buildReviewPreviewCard(
+                                          name: rev['user_name'] ?? 'Pelanggan Kixora',
+                                          avatarUrl: rev['avatar_url'] ??
+                                              'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
+                                          rating: (rev['rating'] as num?)?.toInt() ?? 5,
+                                          comment: rev['comment'] ?? 'Ulasan memuaskan!',
+                                          likes: (rev['likes'] as num?)?.toInt() ?? 12,
+                                          timeAgo: rev['time_ago'] ?? 'Baru saja',
+                                        ),
+                                      );
+                                    }),
+                                  ],
                                 ],
-                              ),
-                              GestureDetector(
-                                onTap: () => context.push('/reviews'),
-                                child: Text(
-                                  'See All',
-                                  style: AppTextStyles.labelLarge.copyWith(
-                                    color: AppColors.primary,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 14),
-                          _buildReviewPreviewCard(
-                            name: 'Darlene Robertson',
-                            avatarUrl:
-                                'https://lh3.googleusercontent.com/aida-public/AB6AXuAvzNAQ2xRzc-iekDdeuq9BV4EnU_5ScdmSci1UOloXZnqkP_p4_PXnQ08Vj5FZDOhIhrYqksph5uUs8c_vUnE_dcK3D8QyMtEYjxz_jSEFBkxmgXCtGgjwJwcRJe5Txd40EK2Aq6GqzWFFRCFwIc940NuCtyIheUttKEQA-uBAkEfWfQw0R59AEGBlyKGRDkv6LpU1e6AfsQzR_iIT46LaAAUiBkpQIE83lXmX9iH8Zy3B9D7tXp3J8w',
-                            rating: 5,
-                            comment:
-                                'The item is very good, my son likes it very much and wearing it every day 💯💯💯',
-                            likes: 729,
-                            timeAgo: '6 days ago',
-                          ),
-                          const SizedBox(height: 12),
-                          _buildReviewPreviewCard(
-                            name: 'Jane Cooper',
-                            avatarUrl:
-                                'https://lh3.googleusercontent.com/aida-public/AB6AXuAlliD8qnkuNep47XdGn5jlUnYD5V0zz1g5hIuhhUNfACsVr28NbBXkZ9EyyagUKq7ek7pg5w4qEwAjJi77TON36EZDbqm339-G8ScFfG4lmB28NvVtNRRB6McdVXxk96ZTO-hpxTf6SDswb0UALkxMNknS_Vt1RQlGcVQqyoIN5d1hO6Ieieh_HW4X9KgECKmN_DMaFHhM4IrLDLOGY4eSzLkKSItSJ9vKoyXR4sU45avc1xnwTbXfWA',
-                            rating: 4,
-                            comment:
-                                'The seller is very fast in sending packet, I just bought it and the item arrived in just 1 day! 👍👍',
-                            likes: 625,
-                            timeAgo: '6 days ago',
+                              );
+                            },
                           ),
                         ],
                       ),

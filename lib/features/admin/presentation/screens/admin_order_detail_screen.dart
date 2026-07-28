@@ -150,7 +150,7 @@ class _AdminOrderDetailScreenState extends State<AdminOrderDetailScreen> {
 
                 // Order Items
                 _buildSection(
-                  title: 'Pesanan',
+                  title: 'Rincian Produk yang Dipesan',
                   icon: HugeIcons.strokeRoundedShoppingBag01,
                   children: [
                     ...order.items.map((item) => Padding(
@@ -219,7 +219,7 @@ class _AdminOrderDetailScreenState extends State<AdminOrderDetailScreen> {
                 const SizedBox(height: 24),
 
                 // Update Status
-                Text('Update Status', style: AppTextStyles.h4),
+                Text('Perbarui Status Pesanan', style: AppTextStyles.h4),
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -334,7 +334,7 @@ class _AdminOrderDetailScreenState extends State<AdminOrderDetailScreen> {
                 if (success && context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Status diubah ke $status'),
+                      content: Text('Status pesanan diubah menjadi $status.'),
                       backgroundColor: AppColors.success,
                     ),
                   );
@@ -351,8 +351,7 @@ class _AdminOrderDetailScreenState extends State<AdminOrderDetailScreen> {
           child: Center(
             child: Text(
               status,
-              style: TextStyle(
-                fontFamily: 'Poppins',
+              style: AppTextStyles.caption.copyWith(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: isActive ? Colors.white : color,

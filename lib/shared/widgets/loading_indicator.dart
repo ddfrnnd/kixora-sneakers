@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fashion_ecommerce/app/theme/app_colors.dart';
+import 'package:fashion_ecommerce/app/theme/app_text_styles.dart';
 
 class LoadingIndicator extends StatelessWidget {
   final String? message;
@@ -29,9 +30,7 @@ class LoadingIndicator extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               message!,
-              style: const TextStyle(
-                fontFamily: 'Poppins',
-                fontSize: 14,
+              style: AppTextStyles.bodyMedium.copyWith(
                 color: AppColors.textSecondary,
               ),
             ),

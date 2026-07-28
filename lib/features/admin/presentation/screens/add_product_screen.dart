@@ -11,7 +11,14 @@ import 'package:fashion_ecommerce/shared/widgets/custom_text_field.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 class AddProductScreen extends StatefulWidget {
-  const AddProductScreen({super.key});
+  final String? productId;
+  final Map<String, dynamic>? initialData;
+
+  const AddProductScreen({
+    super.key,
+    this.productId,
+    this.initialData,
+  });
 
   @override
   State<AddProductScreen> createState() => _AddProductScreenState();
@@ -26,6 +33,39 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
   String _selectedCategory = 'Sneakers';
   bool _isLoading = false;
+
+  bool get _isEditing => widget.productId != null && widget.productId!.isNotEmpty;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialData != null) {
+      _nameController.text = widget.initialData!['name'] ?? '';
+      _descController.text = widget.initialData!['description'] ?? '';
+      final rawPrice = widget.initialData!['price'];
+      if (rawPrice != null) {
+        _priceController.text = (rawPrice is num) ? rawPrice.toStringAsFixed(0) : rawPrice.toString();
+      }
+      _imageUrlController.text = widget.initialData!['image_url'] ?? widget.initialData!['imageUrl'] ?? '';
+      final cat = widget.initialData!['category']?.toString() ?? 'Sneakers';
+      _selectedCategory = _allowedCategories.contains(cat) ? cat : 'Sneakers';
+    }
+  }
+
+  static const List<String> _allowedCategories = [
+    'Sneakers',
+    'Running',
+    'Casual',
+    'Formal',
+    'Nike',
+    'Adidas',
+    'Jordan',
+    'Puma',
+    'Converse',
+    'Vans',
+    'New Balance',
+    'Reebok',
+  ];
 
   @override
   void dispose() {
@@ -47,32 +87,41 @@ class _AddProductScreenState extends State<AddProductScreen> {
           ? 'https://images.unsplash.com/photo-1552346154-21d32810aba3?w=600'
           : _imageUrlController.text.trim();
 
-      await FirebaseFirestore.instance.collection('products').add({
+      final payload = {
         'name': _nameController.text.trim(),
         'description': _descController.text.trim(),
         'price': price,
         'category': _selectedCategory,
         'image_url': imageUrl,
-        'created_at': FieldValue.serverTimestamp(),
-      });
+        'updated_at': FieldValue.serverTimestamp(),
+      };
 
-      if (mounted) {
-        // Refresh product provider list
-        await context.read<ProductProvider>().fetchProducts();
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Produk sepatu berhasil ditambahkan!'),
-            backgroundColor: AppColors.success,
-          ),
-        );
-        context.pop();
+      if (_isEditing) {
+        await FirebaseFirestore.instance.collection('products').doc(widget.productId).update(payload);
+      } else {
+        payload['created_at'] = FieldValue.serverTimestamp();
+        await FirebaseFirestore.instance.collection('products').add(payload);
       }
+
+      if (!mounted) return;
+      final productProvider = context.read<ProductProvider>();
+      final messenger = ScaffoldMessenger.of(context);
+      final nav = context;
+      await productProvider.fetchProducts();
+
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(_isEditing ? 'Data sepatu berhasil diperbarui.' : 'Sepatu baru berhasil ditambahkan!'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+      nav.pop();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Gagal menambah sepatu: $e'),
+            content: Text(_isEditing ? 'Gagal mengedit sepatu.' : 'Gagal menambah sepatu.'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -87,7 +136,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Tambah Sepatu Baru'),
+        title: Text(_isEditing ? 'Edit Sepatu' : 'Tambah Sepatu Baru'),
         leading: IconButton(
           onPressed: () => context.pop(),
           icon: const HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01),
@@ -100,7 +149,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Informasi Sepatu', style: AppTextStyles.h3),
+              Text('Informasi Produk', style: AppTextStyles.h3),
               const SizedBox(height: 16),
 
               CustomTextField(
@@ -115,7 +164,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
               CustomTextField(
                 label: 'Deskripsi & Spesifikasi',
-                hint: 'Jelaskan material upper, bantalan, dan keunggulan...',
+                hint: 'Tuliskan material upper, bantalan, dan keunggulan...',
                 controller: _descController,
                 validator: (val) => Validator.validateRequired(val, 'Deskripsi'),
                 maxLines: 3,
@@ -129,7 +178,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                 hint: 'Contoh: 1500000',
                 controller: _priceController,
                 validator: (val) {
-                  if (val == null || val.trim().isEmpty) return 'Harga tidak boleh kosong';
+                  if (val == null || val.trim().isEmpty) return 'Harga wajib diisi';
                   if (double.tryParse(val.trim()) == null) return 'Harga harus berupa angka';
                   return null;
                 },
@@ -140,7 +189,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
               const SizedBox(height: 16),
 
               // Category dropdown
-              Text('Kategori', style: AppTextStyles.labelLarge),
+              Text('Kategori / Brand', style: AppTextStyles.labelLarge),
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -152,12 +201,12 @@ class _AddProductScreenState extends State<AddProductScreen> {
                   child: DropdownButton<String>(
                     value: _selectedCategory,
                     isExpanded: true,
-                    items: const [
-                      DropdownMenuItem(value: 'Sneakers', child: Text('👟 Sneakers')),
-                      DropdownMenuItem(value: 'Running', child: Text('🏃 Running')),
-                      DropdownMenuItem(value: 'Casual', child: Text('👞 Casual')),
-                      DropdownMenuItem(value: 'Formal', child: Text('💼 Formal')),
-                    ],
+                    items: _allowedCategories.map((cat) {
+                      return DropdownMenuItem(
+                        value: cat,
+                        child: Text(cat, style: const TextStyle(fontSize: 14)),
+                      );
+                    }).toList(),
                     onChanged: (val) {
                       if (val != null) setState(() => _selectedCategory = val);
                     },
@@ -176,7 +225,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
               const SizedBox(height: 32),
 
               CustomButton(
-                text: 'Simpan Sepatu',
+                text: _isEditing ? 'Simpan Perubahan' : 'Simpan Sepatu Baru',
                 icon: HugeIcons.strokeRoundedSave,
                 isLoading: _isLoading,
                 onPressed: _submitProduct,

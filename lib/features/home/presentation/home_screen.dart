@@ -1,16 +1,24 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:fashion_ecommerce/app/theme/app_colors.dart';
 import 'package:fashion_ecommerce/app/theme/app_text_styles.dart';
 import 'package:fashion_ecommerce/features/product/presentation/providers/product_provider.dart';
 import 'package:fashion_ecommerce/features/order/presentation/providers/cart_provider.dart';
+import 'package:fashion_ecommerce/features/order/presentation/screens/cart_screen.dart';
 import 'package:fashion_ecommerce/features/auth/presentation/providers/auth_provider.dart';
+import 'package:fashion_ecommerce/features/auth/domain/entities/user.dart';
+import 'package:fashion_ecommerce/features/product/domain/entities/product.dart';
 import 'package:fashion_ecommerce/shared/widgets/product_card.dart';
 import 'package:fashion_ecommerce/shared/widgets/loading_indicator.dart';
 
@@ -24,8 +32,8 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentNavIndex = 0;
   String _selectedBrandFilter = 'All';
-  bool _isDarkMode = false;
   bool _isNotificationEnabled = true;
+  String? _localAvatarPath;
 
   late final PageController _bannerPageController;
   Timer? _bannerTimer;
@@ -80,10 +88,8 @@ class _HomeScreenState extends State<HomeScreen> {
     _bannerPageController = PageController();
     _startBannerAutoSlide();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final provider = context.read<ProductProvider>();
-      await provider.fetchProducts();
-      await provider.syncFromKicksDev(query: 'nike');
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<ProductProvider>().fetchProducts();
     });
   }
 
@@ -96,8 +102,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _startBannerAutoSlide() {
     _bannerTimer?.cancel();
-    _bannerTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
-      if (_bannerPageController.hasClients) {
+    _bannerTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (mounted && _currentNavIndex == 0 && _bannerPageController.hasClients) {
         final nextIndex = (_currentBannerIndex + 1) % _homeBanners.length;
         _bannerPageController.animateToPage(
           nextIndex,
@@ -155,34 +161,15 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-      floatingActionButton: Consumer<CartProvider>(
-        builder: (context, cart, _) {
-          if (cart.isEmpty) return const SizedBox.shrink();
-          return FloatingActionButton.extended(
-            onPressed: () => context.push('/cart'),
-            icon: const HugeIcon(icon: HugeIcons.strokeRoundedShoppingBag01, color: Colors.white),
-            label: Text(
-              '${cart.totalQuantity} item',
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            backgroundColor: AppColors.primary,
-          );
-        },
-      ),
     );
   }
 
   Widget _buildNavItem(int index, List<List<dynamic>> iconData, String label) {
     final isSelected = _currentNavIndex == index;
+    final cartQuantity = index == 1 ? context.watch<CartProvider>().totalQuantity : 0;
+
     return GestureDetector(
       onTap: () {
-        if (index == 1) {
-          context.push('/cart');
-          return;
-        }
         setState(() => _currentNavIndex = index);
       },
       child: Container(
@@ -191,10 +178,41 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            HugeIcon(
-              icon: iconData,
-              color: isSelected ? AppColors.primary : AppColors.textHint,
-              size: 24,
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                HugeIcon(
+                  icon: iconData,
+                  color: isSelected ? AppColors.primary : AppColors.textHint,
+                  size: 24,
+                ),
+                if (index == 1 && cartQuantity > 0)
+                  Positioned(
+                    top: -4,
+                    right: -6,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: AppColors.error,
+                        shape: BoxShape.circle,
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
+                      child: Text(
+                        cartQuantity > 99 ? '99+' : '$cartQuantity',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          height: 1.0,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 4),
             Text(
@@ -262,28 +280,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const Spacer(),
 
-                // Action Icons
-                IconButton(
-                  onPressed: () async {
-                    final provider = context.read<ProductProvider>();
-                    final messenger = ScaffoldMessenger.of(context);
-                    await provider.syncFromKicksDev(query: 'jordan');
-                    messenger.showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          '⚡ Live sepatu dari Kicks.dev API berhasil disinkronkan!',
-                        ),
-                        backgroundColor: AppColors.success,
-                      ),
-                    );
-                  },
-                  icon: HugeIcon(
-                    icon: HugeIcons.strokeRoundedRefresh,
-                    color: AppColors.textPrimary,
-                    size: 24,
-                  ),
-                  tooltip: 'Sync Live Kicks.dev API',
-                ),
+
                 IconButton(
                   onPressed: () => context.push('/wishlist'),
                   icon: HugeIcon(
@@ -693,22 +690,57 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               }
 
-              return GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: 0.65,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                ),
-                itemCount: products.length,
-                itemBuilder: (context, index) {
-                  final product = products[index];
-                  return ProductCard(
-                    product: product,
-                    onTap: () => context.push('/products/${product.id}'),
+              return StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance.collection('orders').snapshots(),
+                builder: (context, ordersSnapshot) {
+                  Map<String, int> salesMap = {};
+                  if (ordersSnapshot.hasData && ordersSnapshot.data!.docs.isNotEmpty) {
+                    for (var doc in ordersSnapshot.data!.docs) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      final items = (data['items'] as List?) ?? [];
+                      for (var item in items) {
+                        if (item is Map) {
+                          final pId = (item['product_id'] ?? item['id'] ?? '').toString();
+                          final pName = (item['product_name'] ?? item['name'] ?? '').toString();
+                          final qty = (item['quantity'] as num?)?.toInt() ?? (item['qty'] as num?)?.toInt() ?? 1;
+                          if (pId.isNotEmpty) {
+                            salesMap[pId] = (salesMap[pId] ?? 0) + qty;
+                          }
+                          if (pName.isNotEmpty) {
+                            salesMap[pName] = (salesMap[pName] ?? 0) + qty;
+                          }
+                        }
+                      }
+                    }
+                  }
+
+                  var sortedProducts = List<Product>.from(products);
+                  sortedProducts.sort((a, b) {
+                    final salesA = (salesMap[a.id] ?? 0) + (salesMap[a.name] ?? 0) + a.soldCount;
+                    final salesB = (salesMap[b.id] ?? 0) + (salesMap[b.name] ?? 0) + b.soldCount;
+                    final salesCompare = salesB.compareTo(salesA);
+                    if (salesCompare != 0) return salesCompare;
+                    return b.rating.compareTo(a.rating);
+                  });
+
+                  return GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      childAspectRatio: 0.65,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                    ),
+                    itemCount: sortedProducts.length,
+                    itemBuilder: (context, index) {
+                      final product = sortedProducts[index];
+                      return ProductCard(
+                        product: product,
+                        onTap: () => context.push('/products/${product.id}'),
+                      );
+                    },
                   );
                 },
               );
@@ -770,7 +802,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildCartRedirect() {
-    return const SizedBox.shrink();
+    return const CartScreen(showBackButton: false);
   }
 
   // Orders Tab Screen (Stitch UI Navigation Item 3)
@@ -783,24 +815,9 @@ class _HomeScreenState extends State<HomeScreen> {
           // Header (Stitch UI: My Orders)
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'My Orders',
-                  style: AppTextStyles.h2.copyWith(fontSize: 22),
-                ),
-                const Row(
-                  children: [
-                    HugeIcon(icon: HugeIcons.strokeRoundedSearch01, color: AppColors.textPrimary),
-                    SizedBox(width: 16),
-                    HugeIcon(
-                      icon: HugeIcons.strokeRoundedRemoveCircle,
-                      color: AppColors.textPrimary,
-                    ),
-                  ],
-                ),
-              ],
+            child: Text(
+              'My Orders',
+              style: AppTextStyles.h2.copyWith(fontSize: 22),
             ),
           ),
 
@@ -839,7 +856,50 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildEmptyOrdersWidget(bool isCompletedFilter) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 90,
+              height: 90,
+              decoration: const BoxDecoration(
+                color: Color(0xFFF7F3F2),
+                shape: BoxShape.circle,
+              ),
+              child: const HugeIcon(
+                icon: HugeIcons.strokeRoundedShoppingCart01,
+                size: 44,
+                color: AppColors.textHint,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text('Belum Ada Pesanan', style: AppTextStyles.h3),
+            const SizedBox(height: 8),
+            Text(
+              isCompletedFilter
+                  ? 'Pesanan yang telah selesai akan tampil di sini'
+                  : 'Pesanan aktif sepatu Anda akan muncul di sini',
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.textSecondary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildOrdersListByFilter({required bool isCompletedFilter}) {
+    final auth = context.watch<AuthProvider>();
+    final user = auth.user;
+    final userEmail = user?.email.trim().toLowerCase();
+    final userId = user?.id;
+
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('orders')
@@ -851,47 +911,37 @@ class _HomeScreenState extends State<HomeScreen> {
         }
 
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 90,
-                    height: 90,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFF7F3F2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const HugeIcon(
-                      icon: HugeIcons.strokeRoundedShoppingCart01,
-                      size: 44,
-                      color: AppColors.textHint,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text('Belum Ada Pesanan', style: AppTextStyles.h3),
-                  const SizedBox(height: 8),
-                  Text(
-                    isCompletedFilter
-                        ? 'Pesanan yang telah selesai akan tampil di sini'
-                        : 'Pesanan aktif sepatu Anda akan muncul di sini',
-                    style: AppTextStyles.bodyMedium.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            ),
-          );
+          return _buildEmptyOrdersWidget(isCompletedFilter);
         }
 
         final allDocs = snapshot.data!.docs;
-        final filteredDocs = allDocs.where((doc) {
-          final status =
-              (doc.data() as Map<String, dynamic>)['status'] ?? 'Baru';
+
+        // Filter pesanan hanya untuk user yang sedang login (kecuali admin)
+        final userDocs = allDocs.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          final docUserEmail = (data['user_email'] ?? '').toString().trim().toLowerCase();
+          final docUserId = (data['user_id'] ?? '').toString();
+          final customerName = (data['customer_name'] ?? '').toString().trim().toLowerCase();
+
+          // Admin dapat melihat seluruh order
+          if (auth.isAdmin) return true;
+
+          // Customer biasa hanya melihat order miliknya
+          if (userEmail != null && userEmail.isNotEmpty && docUserEmail == userEmail) {
+            return true;
+          }
+          if (userId != null && userId.isNotEmpty && docUserId == userId) {
+            return true;
+          }
+          if (user != null && customerName.isNotEmpty && customerName == user.name.trim().toLowerCase()) {
+            return true;
+          }
+
+          return false;
+        }).toList();
+
+        final filteredDocs = userDocs.where((doc) {
+          final status = (doc.data() as Map<String, dynamic>)['status'] ?? 'Baru';
           if (isCompletedFilter) {
             return status == 'Selesai';
           } else {
@@ -900,16 +950,7 @@ class _HomeScreenState extends State<HomeScreen> {
         }).toList();
 
         if (filteredDocs.isEmpty) {
-          return Center(
-            child: Text(
-              isCompletedFilter
-                  ? 'Belum ada pesanan selesai'
-                  : 'Tidak ada pesanan aktif',
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: AppColors.textSecondary,
-              ),
-            ),
-          );
+          return _buildEmptyOrdersWidget(isCompletedFilter);
         }
 
         return ListView.separated(
@@ -983,18 +1024,42 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          firstItemName,
-                          style: AppTextStyles.labelLarge.copyWith(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                firstItemName,
+                                style: AppTextStyles.labelLarge.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (items.length > 1) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  '+${items.length - 1} lainnya',
+                                  style: const TextStyle(
+                                    color: AppColors.primary,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Size: 42 | Color: Black',
+                          items.length > 1 ? '${items.length} Barang Dipesan' : 'Size: 42 | Color: Black',
                           style: AppTextStyles.caption.copyWith(
                             color: AppColors.textSecondary,
                             fontSize: 12,
@@ -1002,24 +1067,43 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const SizedBox(height: 6),
 
-                        // Status Badge
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF1EDEC),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            status.toUpperCase(),
-                            style: AppTextStyles.caption.copyWith(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primary,
+                        Row(
+                          children: [
+                            // Status Badge
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF1EDEC),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                status.toUpperCase(),
+                                style: AppTextStyles.caption.copyWith(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primary,
+                                ),
+                              ),
                             ),
-                          ),
+                            if (items.length > 1) ...[
+                              const SizedBox(width: 10),
+                              GestureDetector(
+                                onTap: () => _showAllOrderProductsSheet(context, data),
+                                child: const Text(
+                                  'Lihat Produk',
+                                  style: TextStyle(
+                                    color: AppColors.primary,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                         const SizedBox(height: 10),
 
@@ -1033,31 +1117,226 @@ class _HomeScreenState extends State<HomeScreen> {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            ElevatedButton(
-                              onPressed: () =>
-                                  context.push('/order-tracking/$docId'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primary,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 8,
+                            if (status == 'Selesai') ...[
+                              Row(
+                                children: [
+                                  OutlinedButton(
+                                    onPressed: () => context.push('/order-tracking/$docId'),
+                                    style: OutlinedButton.styleFrom(
+                                      side: const BorderSide(color: AppColors.primary),
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(100),
+                                      ),
+                                    ),
+                                    child: const Text(
+                                      'Detail',
+                                      style: TextStyle(
+                                        color: AppColors.primary,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  ElevatedButton(
+                                    onPressed: () => context.push('/order-tracking/$docId'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.primary,
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(100),
+                                      ),
+                                    ),
+                                    child: const Text(
+                                      'Beri Ulasan',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ] else ...[
+                              ElevatedButton(
+                                onPressed: () =>
+                                    context.push('/order-tracking/$docId'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 8,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(100),
+                                  ),
                                 ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(100),
+                                child: const Text(
+                                  'Track Order',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
-                              child: const Text(
-                                'Track Order',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
+                            ],
                           ],
                         ),
                       ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showAllOrderProductsSheet(BuildContext context, Map<String, dynamic> data) {
+    final items = (data['items'] as List?) ?? [];
+    final status = data['status'] ?? 'Baru';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (context) {
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.6,
+          maxChildSize: 0.85,
+          minChildSize: 0.4,
+          builder: (context, scrollController) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Daftar Produk (${items.length})',
+                        style: AppTextStyles.h2.copyWith(fontSize: 20),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          status.toString().toUpperCase(),
+                          style: const TextStyle(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const Divider(height: 1),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: ListView.separated(
+                      controller: scrollController,
+                      itemCount: items.length,
+                      separatorBuilder: (_, __) => const Divider(height: 24),
+                      itemBuilder: (context, idx) {
+                        final item = items[idx] as Map<String, dynamic>;
+                        final name = item['product_name'] ?? 'Sepatu Authentic';
+                        final price = (item['price'] as num?)?.toDouble() ?? 0.0;
+                        final qty = (item['quantity'] as num?)?.toInt() ?? 1;
+                        final img = item['image_url'] ?? item['imageUrl'];
+
+                        return Row(
+                          children: [
+                            Container(
+                              width: 70,
+                              height: 70,
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF7F3F2),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: (img != null && img.toString().isNotEmpty)
+                                  ? ColorFiltered(
+                                      colorFilter: const ColorFilter.mode(
+                                        Color(0xFFF7F3F2),
+                                        BlendMode.multiply,
+                                      ),
+                                      child: Image.network(
+                                        img.toString(),
+                                        fit: BoxFit.contain,
+                                        errorBuilder: (_, __, ___) => const HugeIcon(
+                                          icon: HugeIcons.strokeRoundedRunningShoes,
+                                          color: AppColors.primary,
+                                          size: 32,
+                                        ),
+                                      ),
+                                    )
+                                  : const HugeIcon(
+                                      icon: HugeIcons.strokeRoundedRunningShoes,
+                                      color: AppColors.primary,
+                                      size: 32,
+                                    ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    name,
+                                    style: AppTextStyles.labelLarge.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Jumlah: $qty x Rp ${_formatPrice(price)}',
+                                    style: AppTextStyles.caption.copyWith(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Text(
+                              'Rp ${_formatPrice(price * qty)}',
+                              style: AppTextStyles.price.copyWith(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ),
                 ],
@@ -1082,35 +1361,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 // 1. Header (Stitch style)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
-                  child: Row(
-                    children: [
-                      const HugeIcon(
-                        icon: HugeIcons.strokeRoundedRunningShoes,
-                        color: AppColors.primary,
-                        size: 28,
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        'Profile',
-                        style: AppTextStyles.h1.copyWith(fontSize: 24),
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Kixora Sneakers App v1.0.0 - Authentic Sneakers'),
-                              backgroundColor: AppColors.primary,
-                            ),
-                          );
-                        },
-                        icon: const HugeIcon(
-                          icon: HugeIcons.strokeRoundedSettings01,
-                          color: AppColors.textPrimary,
-                          size: 24,
-                        ),
-                      ),
-                    ],
+                  child: Text(
+                    'Profile',
+                    style: AppTextStyles.h1.copyWith(fontSize: 24),
                   ),
                 ),
                 const Divider(color: AppColors.surfaceVariant, height: 1),
@@ -1120,42 +1373,29 @@ class _HomeScreenState extends State<HomeScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
                   child: Column(
                     children: [
-                      Stack(
-                        children: [
-                          Container(
-                            width: 110,
-                            height: 110,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.grey.shade200, width: 2),
-                              image: const DecorationImage(
-                                image: NetworkImage(
-                                  'https://lh3.googleusercontent.com/aida-public/AB6AXuD1AyqKY5t3ekBa2z1q81wZ0H5mklHPeaJTFq0USDr7C46iEaPKRiR_AGLr7BgNmyKj4CRWSVVUHIySiMbF6xdHh-R1xJ546C342nPY-ARv3_uONIMY9XgwTKmjE7v5Iwt_hFFua4hJrecJXX2jxxKpTwNSbpELqmiE2qjLHeHDSNooUXeXWNYFPURV7hcNc9a7Qnt9lOkLbKfNu5iViSmwQ0tYKA95-3fKFWTr4x5Xs9i8efIp3clCU1B39ePL9U5nyjM',
-                                ),
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: GestureDetector(
-                              onTap: () => _showEditProfileDialog(context, auth, user.name),
+                      GestureDetector(
+                        onTap: () => _showProfilePhotoOptions(context, auth),
+                        child: Stack(
+                          children: [
+                            _buildProfileAvatar(user),
+                            Positioned(
+                              bottom: 0,
+                              right: 0,
                               child: Container(
-                                padding: const EdgeInsets.all(6),
+                                padding: const EdgeInsets.all(8),
                                 decoration: const BoxDecoration(
                                   color: AppColors.primary,
-                                  borderRadius: BorderRadius.all(Radius.circular(8)),
+                                  shape: BoxShape.circle,
                                 ),
                                 child: const HugeIcon(
-                                  icon: HugeIcons.strokeRoundedEdit02,
+                                  icon: HugeIcons.strokeRoundedCamera01,
                                   color: Colors.white,
-                                  size: 14,
+                                  size: 16,
                                 ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 16),
                       Text(
@@ -1163,14 +1403,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         style: AppTextStyles.h2.copyWith(fontSize: 22),
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        '+1 111 467 378 399',
-                        style: AppTextStyles.bodyMedium.copyWith(
-                          color: AppColors.textSecondary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
                       Text(
                         user.email,
                         style: AppTextStyles.caption.copyWith(
@@ -1212,24 +1444,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         onTap: () {
                           setState(() {
                             _isNotificationEnabled = !_isNotificationEnabled;
-                          });
-                        },
-                      ),
-                      _buildSettingsItem(
-                        icon: HugeIcons.strokeRoundedEye,
-                        title: 'Dark Mode',
-                        trailing: Switch.adaptive(
-                          value: _isDarkMode,
-                          activeTrackColor: AppColors.primary,
-                          onChanged: (val) {
-                            setState(() {
-                              _isDarkMode = val;
-                            });
-                          },
-                        ),
-                        onTap: () {
-                          setState(() {
-                            _isDarkMode = !_isDarkMode;
                           });
                         },
                       ),
@@ -1385,6 +1599,244 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildProfileAvatar(User user) {
+    final photo = (user.photoUrl != null && user.photoUrl!.trim().isNotEmpty)
+        ? user.photoUrl
+        : _localAvatarPath;
+    final hasPhoto = photo != null && photo.trim().isNotEmpty;
+    ImageProvider? avatarImage;
+
+    if (hasPhoto) {
+      final trimmed = photo.trim();
+      if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+        avatarImage = NetworkImage(trimmed);
+      } else if (trimmed.startsWith('data:image')) {
+        try {
+          final base64Str = trimmed.split(',').last;
+          avatarImage = MemoryImage(base64Decode(base64Str));
+        } catch (_) {}
+      } else if (!kIsWeb) {
+        final file = File(trimmed);
+        if (file.existsSync()) {
+          FileImage(file).evict();
+          avatarImage = FileImage(file);
+        }
+      }
+    }
+
+    return Container(
+      key: ValueKey('${photo}_${DateTime.now().millisecondsSinceEpoch}'),
+      width: 110,
+      height: 110,
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.08),
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.grey.shade200, width: 2),
+        image: avatarImage != null
+            ? DecorationImage(
+                image: avatarImage,
+                fit: BoxFit.cover,
+              )
+            : null,
+      ),
+      child: avatarImage == null
+          ? const Center(
+              child: HugeIcon(
+                icon: HugeIcons.strokeRoundedUser,
+                size: 56,
+                color: AppColors.primary,
+              ),
+            )
+          : null,
+    );
+  }
+
+  void _showProfilePhotoOptions(BuildContext context, AuthProvider auth) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text('Ubah Foto Profil', style: AppTextStyles.h3),
+                const SizedBox(height: 20),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const HugeIcon(
+                      icon: HugeIcons.strokeRoundedImage01,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  title: const Text('Pilih dari Galeri HP', style: TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: const Text('Buka galeri foto perangkat Anda'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _pickProfileImage(context, auth, ImageSource.gallery);
+                  },
+                ),
+                const SizedBox(height: 8),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const HugeIcon(
+                      icon: HugeIcons.strokeRoundedCamera01,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  title: const Text('Ambil Foto Kamera', style: TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: const Text('Gunakan kamera smartphone'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _pickProfileImage(context, auth, ImageSource.camera);
+                  },
+                ),
+                if ((_localAvatarPath != null && _localAvatarPath!.isNotEmpty) ||
+                    (auth.user?.photoUrl != null && auth.user!.photoUrl!.isNotEmpty)) ...[
+                  const SizedBox(height: 8),
+                  ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.error.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const HugeIcon(
+                        icon: HugeIcons.strokeRoundedDelete02,
+                        color: AppColors.error,
+                      ),
+                    ),
+                    title: const Text('Hapus Foto Profil', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.bold)),
+                    subtitle: const Text('Kembali ke foto profil bawaan'),
+                    onTap: () async {
+                      Navigator.pop(context);
+                      final messenger = ScaffoldMessenger.of(context);
+                      setState(() {
+                        _localAvatarPath = null;
+                      });
+                      final success = await auth.updateProfilePhoto('');
+                      if (mounted) setState(() {});
+                      if (success) {
+                        messenger.showSnackBar(
+                          const SnackBar(
+                            content: Text('Foto profil berhasil dihapus.'),
+                            backgroundColor: AppColors.success,
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _pickProfileImage(BuildContext context, AuthProvider auth, ImageSource source) async {
+    final messenger = ScaffoldMessenger.of(context);
+
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(
+        source: source,
+        maxWidth: 600,
+        maxHeight: 600,
+        imageQuality: 75,
+      );
+
+      if (pickedFile == null) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Pemilihan foto dibatalkan'),
+            backgroundColor: AppColors.primary,
+          ),
+        );
+        return;
+      }
+
+      String finalPhotoUrl = '';
+
+      if (kIsWeb) {
+        final bytes = await pickedFile.readAsBytes();
+        final base64String = base64Encode(bytes);
+        finalPhotoUrl = 'data:image/jpeg;base64,$base64String';
+      } else {
+        try {
+          final appDir = await getApplicationDocumentsDirectory();
+          final userId = auth.user?.id ?? 'user';
+          final timeStamp = DateTime.now().millisecondsSinceEpoch;
+          final targetPath = '${appDir.path}/avatar_${userId}_$timeStamp.jpg';
+          final savedFile = await File(pickedFile.path).copy(targetPath);
+          finalPhotoUrl = savedFile.path;
+        } catch (_) {
+          final bytes = await pickedFile.readAsBytes();
+          final base64String = base64Encode(bytes);
+          finalPhotoUrl = 'data:image/jpeg;base64,$base64String';
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _localAvatarPath = finalPhotoUrl;
+        });
+      }
+
+      final success = await auth.updateProfilePhoto(finalPhotoUrl);
+
+      if (success || _localAvatarPath != null) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Foto profil berhasil diperbarui'),
+            backgroundColor: AppColors.success,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      } else {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Gagal memperbarui foto profil. Silakan coba lagi.'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } catch (e) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Gagal memperbarui foto profil. Silakan coba lagi.'),
+          backgroundColor: AppColors.error,
+          duration: Duration(seconds: 4),
+        ),
+      );
+    }
+  }
+
   void _showPrivacyPolicySheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -1526,6 +1978,9 @@ class _HomeScreenState extends State<HomeScreen> {
             ElevatedButton(
               onPressed: () async {
                 Navigator.pop(context);
+                setState(() {
+                  _localAvatarPath = null;
+                });
                 await auth.logout();
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(

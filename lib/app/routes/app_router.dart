@@ -79,7 +79,13 @@ class AppRouter {
       GoRoute(
         path: '/reviews',
         name: 'customer-reviews',
-        builder: (context, state) => const CustomerReviewsScreen(),
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return CustomerReviewsScreen(
+            productId: extra?['productId'] as String?,
+            productName: extra?['productName'] as String?,
+          );
+        },
       ),
       GoRoute(
         path: '/address',
@@ -171,7 +177,13 @@ class AppRouter {
       GoRoute(
         path: '/admin/add-product',
         name: 'admin-add-product',
-        builder: (context, state) => const AddProductScreen(),
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return AddProductScreen(
+            productId: extra?['productId'] as String?,
+            initialData: extra?['initialData'] as Map<String, dynamic>?,
+          );
+        },
       ),
       GoRoute(
         path: '/admin/orders/:id',

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fashion_ecommerce/app/theme/app_colors.dart';
+import 'package:fashion_ecommerce/app/theme/app_text_styles.dart';
 
 class CategoryFilterChip extends StatelessWidget {
   final String label;
@@ -38,9 +39,7 @@ class CategoryFilterChip extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 14,
+          style: AppTextStyles.bodyMedium.copyWith(
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
             color: isSelected ? AppColors.textOnPrimary : AppColors.textSecondary,
           ),

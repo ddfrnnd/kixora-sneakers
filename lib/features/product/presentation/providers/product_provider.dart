@@ -73,6 +73,21 @@ class ProductProvider extends ChangeNotifier {
   String get searchQuery => _searchQuery;
 
   /// Fetch all products — dari Firestore, fallback ke SQLite, auto-sync dari Kicks jika kosong
+  // Categories that admin can assign — these always pass the shoe filter
+  static const Set<String> _adminAllowedCategories = {
+    'sneakers', 'running', 'casual', 'formal',
+    'nike', 'adidas', 'jordan', 'puma', 'converse',
+    'vans', 'new balance', 'reebok',
+  };
+
+  /// Returns true if the product should be shown to users.
+  /// Admin-added products with known categories always pass, else falls back to keyword check.
+  static bool _isValidProduct(Product product) {
+    final catLower = product.category.toLowerCase().trim();
+    if (_adminAllowedCategories.contains(catLower)) return true;
+    return KicksRemoteDatasource.isShoeProduct(product);
+  }
+
   Future<void> fetchProducts() async {
     _isLoading = true;
     _error = null;
@@ -80,12 +95,12 @@ class ProductProvider extends ChangeNotifier {
 
     try {
       _products = await _repository.getAllProducts();
-      _products = _products.where(KicksRemoteDatasource.isShoeProduct).toList();
+      _products = _products.where(_isValidProduct).toList();
       _products = _products.where((p) => p.imageUrl != null && p.imageUrl!.isNotEmpty).toList();
       if (_products.isEmpty) {
         await _syncDefaultBrands();
         _products = await _repository.getAllProducts();
-        _products = _products.where(KicksRemoteDatasource.isShoeProduct).toList();
+        _products = _products.where(_isValidProduct).toList();
         _products = _products.where((p) => p.imageUrl != null && p.imageUrl!.isNotEmpty).toList();
       }
       _applyFilters();
@@ -173,6 +188,13 @@ class ProductProvider extends ChangeNotifier {
                p.category.toLowerCase().contains(searchLower);
       }).toList();
     }
+
+    // Default sorting for Most Popular: sort by highest soldCount, then rating
+    _filteredProducts.sort((a, b) {
+      final soldComp = b.soldCount.compareTo(a.soldCount);
+      if (soldComp != 0) return soldComp;
+      return b.rating.compareTo(a.rating);
+    });
   }
 
   /// Reset selected product

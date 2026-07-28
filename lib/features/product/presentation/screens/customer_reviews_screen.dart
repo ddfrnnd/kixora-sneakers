@@ -24,7 +24,14 @@ class ReviewItemData {
 }
 
 class CustomerReviewsScreen extends StatefulWidget {
-  const CustomerReviewsScreen({super.key});
+  final String? productId;
+  final String? productName;
+
+  const CustomerReviewsScreen({
+    super.key,
+    this.productId,
+    this.productName,
+  });
 
   @override
   State<CustomerReviewsScreen> createState() => _CustomerReviewsScreenState();
@@ -43,6 +50,19 @@ class _CustomerReviewsScreenState extends State<CustomerReviewsScreen> {
         if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
           for (var doc in snapshot.data!.docs) {
             final data = doc.data() as Map<String, dynamic>;
+            final docProdId = (data['product_id'] ?? '').toString();
+            final docProdName = (data['product_name'] ?? '').toString();
+
+            if (widget.productId != null && widget.productId!.isNotEmpty) {
+              if (docProdId != widget.productId && docProdName != widget.productName) {
+                continue;
+              }
+            } else if (widget.productName != null && widget.productName!.isNotEmpty) {
+              if (docProdName != widget.productName) {
+                continue;
+              }
+            }
+
             reviewsList.add(
               ReviewItemData(
                 name: data['user_name'] ?? 'Pelanggan Kixora',
@@ -62,6 +82,10 @@ class _CustomerReviewsScreenState extends State<CustomerReviewsScreen> {
           return review.rating == targetRating;
         }).toList();
 
+        final screenTitle = widget.productName != null && widget.productName!.isNotEmpty
+            ? 'Ulasan Produk'
+            : 'Ulasan Pelanggan (${reviewsList.length})';
+
         return Scaffold(
           backgroundColor: AppColors.background,
           appBar: AppBar(
@@ -76,7 +100,7 @@ class _CustomerReviewsScreenState extends State<CustomerReviewsScreen> {
               ),
             ),
             title: Text(
-              'Ulasan Pelanggan (${reviewsList.length})',
+              screenTitle,
               style: AppTextStyles.h2.copyWith(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
