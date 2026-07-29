@@ -60,11 +60,14 @@ class OrderStatusBadge extends StatelessWidget {
         children: [
           HugeIcon(icon: _icon, size: 14, color: _textColor),
           const SizedBox(width: 4),
-          Text(
-            status,
-            style: AppTextStyles.caption.copyWith(
-              color: _textColor,
-              fontWeight: FontWeight.w600,
+          Flexible(
+            child: Text(
+              status,
+              style: AppTextStyles.caption.copyWith(
+                color: _textColor,
+                fontWeight: FontWeight.w600,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],

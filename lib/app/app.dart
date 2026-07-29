@@ -30,7 +30,17 @@ class App extends StatelessWidget {
           ),
         ),
         ChangeNotifierProvider(
+          create: (_) => AuthProvider(
+            secureStorage: secureStorage,
+          ),
+        ),
+        ChangeNotifierProxyProvider<AuthProvider, CartProvider>(
           create: (_) => CartProvider(),
+          update: (_, auth, cart) {
+            final cartProvider = cart ?? CartProvider();
+            cartProvider.updateUser(auth.user?.id);
+            return cartProvider;
+          },
         ),
         ChangeNotifierProvider(
           create: (_) => OrderProvider(
@@ -39,11 +49,6 @@ class App extends StatelessWidget {
         ),
         ChangeNotifierProvider(
           create: (_) => LocationProvider(),
-        ),
-        ChangeNotifierProvider(
-          create: (_) => AuthProvider(
-            secureStorage: secureStorage,
-          ),
         ),
         ChangeNotifierProvider(
           create: (_) => AdminProvider(),

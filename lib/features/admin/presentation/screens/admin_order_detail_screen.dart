@@ -97,10 +97,14 @@ class _AdminOrderDetailScreenState extends State<AdminOrderDetailScreen> {
                         mainAxisAlignment:
                             MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            'Order #${order.id}',
-                            style: AppTextStyles.h4,
+                          Expanded(
+                            child: Text(
+                              'Order #${order.id}',
+                              style: AppTextStyles.h4,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
+                          const SizedBox(width: 8),
                           OrderStatusBadge(status: order.status),
                         ],
                       ),
@@ -221,7 +225,9 @@ class _AdminOrderDetailScreenState extends State<AdminOrderDetailScreen> {
                 // Update Status
                 Text('Perbarui Status Pesanan', style: AppTextStyles.h4),
                 const SizedBox(height: 12),
-                Row(
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
                     _buildStatusButton(
                       context,
@@ -229,21 +235,18 @@ class _AdminOrderDetailScreenState extends State<AdminOrderDetailScreen> {
                       order.status == 'Baru',
                       AppColors.primary,
                     ),
-                    const SizedBox(width: 6),
                     _buildStatusButton(
                       context,
                       'Diproses',
                       order.status == 'Diproses',
                       const Color(0xFFF59E0B),
                     ),
-                    const SizedBox(width: 6),
                     _buildStatusButton(
                       context,
                       'Dikirim',
                       order.status == 'Dikirim',
                       const Color(0xFF3B82F6),
                     ),
-                    const SizedBox(width: 6),
                     _buildStatusButton(
                       context,
                       'Selesai',
@@ -321,35 +324,50 @@ class _AdminOrderDetailScreenState extends State<AdminOrderDetailScreen> {
     bool isActive,
     Color color,
   ) {
-    return Expanded(
-      child: InkWell(
-        onTap: isActive
-            ? null
-            : () async {
-                final admin = context.read<AdminProvider>();
-                final success = await admin.updateOrderStatus(
-                  widget.orderId,
-                  status,
+    return InkWell(
+      onTap: isActive
+          ? null
+          : () async {
+              final admin = context.read<AdminProvider>();
+              final success = await admin.updateOrderStatus(
+                widget.orderId,
+                status,
+              );
+              if (success && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Status pesanan diubah menjadi $status.'),
+                    backgroundColor: AppColors.success,
+                  ),
                 );
-                if (success && context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Status pesanan diubah menjadi $status.'),
-                      backgroundColor: AppColors.success,
-                    ),
-                  );
-                }
-              },
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: isActive ? color : color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: color),
-          ),
-          child: Center(
-            child: Text(
+              }
+            },
+      borderRadius: BorderRadius.circular(100),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: isActive ? color : color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(100),
+          border: Border.all(color: color),
+          boxShadow: isActive
+              ? [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.3),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : [],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isActive) ...[
+              const Icon(Icons.check_circle_rounded, size: 14, color: Colors.white),
+              const SizedBox(width: 6),
+            ],
+            Text(
               status,
               style: AppTextStyles.caption.copyWith(
                 fontSize: 13,
@@ -357,7 +375,7 @@ class _AdminOrderDetailScreenState extends State<AdminOrderDetailScreen> {
                 color: isActive ? Colors.white : color,
               ),
             ),
-          ),
+          ],
         ),
       ),
     );

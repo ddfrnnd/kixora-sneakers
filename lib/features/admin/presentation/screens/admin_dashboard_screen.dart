@@ -91,10 +91,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             tooltip: 'Refresh Data',
           ),
           PopupMenuButton<String>(
-            onSelected: (value) {
+            onSelected: (value) async {
               if (value == 'logout') {
-                context.read<AuthProvider>().logout();
-                context.go('/home');
+                final auth = context.read<AuthProvider>();
+                final messenger = ScaffoldMessenger.of(context);
+                final router = GoRouter.of(context);
+                await auth.logout();
+                messenger.showSnackBar(
+                  const SnackBar(
+                    content: Text('Berhasil keluar dari panel Admin.'),
+                    backgroundColor: AppColors.primary,
+                  ),
+                );
+                router.go('/login');
               }
             },
             icon: const HugeIcon(icon: HugeIcons.strokeRoundedMoreVertical, color: AppColors.textPrimary),
@@ -868,9 +877,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
           // Logout Button
           ElevatedButton.icon(
-            onPressed: () {
-              context.read<AuthProvider>().logout();
-              context.go('/home');
+            onPressed: () async {
+              final auth = context.read<AuthProvider>();
+              final messenger = ScaffoldMessenger.of(context);
+              final router = GoRouter.of(context);
+              await auth.logout();
+              messenger.showSnackBar(
+                const SnackBar(
+                  content: Text('Berhasil keluar dari panel Admin.'),
+                  backgroundColor: AppColors.primary,
+                ),
+              );
+              router.go('/login');
             },
             style: ElevatedButton.styleFrom(
               minimumSize: const Size.fromHeight(52),

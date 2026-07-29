@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:hugeicons/hugeicons.dart';
@@ -50,13 +51,16 @@ class _AdminAnalyticsWidgetState extends State<AdminAnalyticsWidget> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 1. KPI Summary Stat Cards Grid (Flat Solid Colors)
-          GridView.count(
-            crossAxisCount: 2,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final crossAxisCount = constraints.maxWidth < 360 ? 1 : 2;
+              return GridView.count(
+            crossAxisCount: crossAxisCount,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            childAspectRatio: 1.45,
+            childAspectRatio: constraints.maxWidth < 360 ? 2.2 : 1.45,
             children: [
               _buildKpiCard(
                 title: 'Total Omzet',
@@ -105,6 +109,8 @@ class _AdminAnalyticsWidgetState extends State<AdminAnalyticsWidget> {
                 isPositive: true,
               ),
             ],
+            );
+            },
           ),
           const SizedBox(height: 24),
 
@@ -126,25 +132,22 @@ class _AdminAnalyticsWidgetState extends State<AdminAnalyticsWidget> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Tren Omzet & Penjualan',
-                          style: AppTextStyles.h3.copyWith(fontSize: 17, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Analitik pendapatan harian',
-                          style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
-                        ),
-                      ],
+                    Text(
+                      'Tren Omzet & Penjualan',
+                      style: AppTextStyles.h3.copyWith(fontSize: 17, fontWeight: FontWeight.bold),
                     ),
-                    // Period Filter Pills
-                    Container(
+                    const SizedBox(height: 2),
+                    Text(
+                      'Analitik pendapatan harian',
+                      style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
+                    ),
+                    const SizedBox(height: 12),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Container(
                       padding: const EdgeInsets.all(3),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF1F5F9),
@@ -173,6 +176,7 @@ class _AdminAnalyticsWidgetState extends State<AdminAnalyticsWidget> {
                           );
                         }).toList(),
                       ),
+                    ),
                     ),
                   ],
                 ),

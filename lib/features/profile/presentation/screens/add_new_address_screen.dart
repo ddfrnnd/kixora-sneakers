@@ -616,15 +616,15 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
                                 hintText: 'Cari jalan, kelurahan, atau kota...',
                                 hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
                                 prefixIconConstraints: const BoxConstraints(
-                                  minWidth: 48,
-                                  minHeight: 48,
+                                  minWidth: 38,
+                                  minHeight: 38,
                                 ),
                                 prefixIcon: const Padding(
-                                  padding: EdgeInsets.only(left: 16, right: 12),
-                                  child: HugeIcon(
-                                    icon: HugeIcons.strokeRoundedSearch01,
+                                  padding: EdgeInsets.only(left: 12, right: 6),
+                                  child: Icon(
+                                    Icons.search_rounded,
                                     color: AppColors.textSecondary,
-                                    size: 20,
+                                    size: 18,
                                   ),
                                 ),
                                 suffixIcon: _searchController.text.isNotEmpty
